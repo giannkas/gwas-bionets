@@ -1,14 +1,20 @@
 # gwas-bionets
-_This repository is a based on [hclimente/gwas-tools](https://github.com/hclimente/gwas-tools) which uses the GWAS analysis part to prepare its adaptation for another project at [CBIO](https://cbio.mines-paristech.fr/)_
 
-1. Splitting data if needed. Open the file `splitting_data.sh` to change parameters.
+gwas-bionets is a repository to run different biological network methods, namely [Heinz](https://academic.oup.com/bioinformatics/article/24/13/i223/231653?login=true), [HotNet2](https://www.nature.com/articles/ng.3168), and [SigMod](https://academic.oup.com/bioinformatics/article/33/10/1536/2874362). The input is a typical fileset for GWAS analysis in PLINK 1.9 format (.bim, .bed and .fam). The general workflow for constructing a consensus network is as follows:
 
-`scripts/splitting_data.sh`
+[<img src="img/consensus_pipeline.svg" width="250"/>](img/consensus_pipeline.svg)
 
-2. SNPs P-value computation using PLINK v1.9. Open the file `snp_association_pvalue.sh` to change parameters. Note that there is a function to reformat PLINK output to order cols in compatible format for MAGMA.
+And for generating a stable consensus network (when the _k_ parameter is greater than 1) the correspoding pipeline is:
 
-`scripts/snp_association_pvalue.sh`
+[<img src="img/stable_consensus_pipeline.svg" width="250"/>](img/stable_consensus_pipeline.svg)
 
-3. MAGMA analysis to conduct annotation and gene analysis steps. Open the file `magma_analysis.sh` to change parameters.
+For the latter image, we used _k_=5 as illustration but you can change to greater number which makes sense in your experiments. Also, 1H,2H, ... corresponds to the solutions outputted by Heinz; 1N, 2N, ... solutions of HotNet2; and 1S, 2S, ... solutions of SigMod. Filtering step is not included in the pipeline, then please assure your data is a priori filtered. BioGRID is used as a source for the PPI but you can choose another network of reference, be advised that a two-column header indicating the connection between two molecules is expected, i.e., 'Official Symbol Interactor A' and 'Official Symbol Interactor B'.
 
-`scripts/magma_analysis.sh`
+1. This script works with the raw data for splitting it if parametrized with the _k_ parameter. The script is conceived to be modified to provide the parameters.
+
+`bionets_construction_from_data.sh`
+
+2. This script works with the scores previously computed using a software like [MAGMA](https://cncr.nl/research/magma/) for the gene P-values. Again, a _k_ parameter greater than 1 generates k-fold solutions. The script is conceived to be modified to provide the parameters.
+
+`bionets_construction_from_scores.sh`
+

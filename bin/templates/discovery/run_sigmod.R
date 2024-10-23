@@ -16,7 +16,7 @@ rename(Interactor_A = `Official Symbol Interactor A`,
     as.data.frame
 
 # read vegas output
-scores <- read_tsv('${VEGAS_OUT}') %>% 
+scores <- read_tsv('${MAGMA_OUT}') %>% 
     rename(gene = Gene, p = Pvalue) %>%
     select(gene, p) %>%
     as.data.frame
@@ -28,4 +28,4 @@ res_info <- SigMod_bisection(net = scored_net, lambda_max = ${LAMBDAMAX}, nmax =
 save(scored_net, res_info, file = 'sigmod.RData')
 
 data.frame(gene = names(V(res_info\$opt_module[[1]]))) %>%
-    write_tsv('selected_genes.sigmod.txt')
+    write_tsv('selected_genes${SPLIT}.sigmod.txt')
