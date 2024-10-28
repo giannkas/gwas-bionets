@@ -40,7 +40,7 @@ rm jdk-17.0.10_linux-x64_bin.tar.gz
 Export the path to the `bin` directory of this folder into the system variable `$PATH` to make Java executable. Also, export the `$JAVA_HOME` variable indicating the root directory. Ideally, add these to `~/.bashrc` to avoid repeating the process on each server connection or reboot, eg.
 
 ```bash
-export PATH=$PATH:/home/username/bin/java/jdk-17.0.10/bin
+export PATH=/home/username/bin/java/jdk-17.0.10/bin:$PATH
 export JAVA_HOME=/home/username/bin/java/jdk-17.0.10
 ```
 
@@ -59,25 +59,31 @@ java -version
 You should see something like:
 
 ```bash
-openjdk version "11.0.17" 2022-10-18
-OpenJDK Runtime Environment (build 11.0.17+8-post-Ubuntu-1ubuntu220.04)
-OpenJDK 64-Bit Server VM (build 11.0.17+8-post-Ubuntu-1ubuntu220.04, mixed mode, sharing)
+java version "17.0.10" 2024-01-16 LTS
+Java(TM) SE Runtime Environment (build 17.0.10+11-LTS-240)
+Java HotSpot(TM) 64-Bit Server VM (build 17.0.10+11-LTS-240, mixed mode, sharing)
 ```
 
 **Install Nextflow**
 
-Create a "nextflow" folder in the software directory and navigate to it.
+Change directory to our software directory.
 
 ```bash
-mkdir ~/bin/nextflow
-cd ~/bin/nextflow
+cd ~/bin
 ```
 
 Download Nextflow version 22.10.4 and decompress:
 
 ```bash
 wget https://github.com/nextflow-io/nextflow/archive/refs/tags/v22.10.4.tar.gz
-tar -xzvf /gwas-bionets/nextflow/nextflow-22.10.4.tar.gz
+tar -xzvf /gwas-bionets/nextflow/v-22.10.4.tar.gz
+```
+
+Change folder name and navigate to it.
+
+```bash
+mv nextflow-22.10.4 nextflow
+cd nextflow
 ```
 
 Compile and install it:
@@ -100,13 +106,110 @@ Test the installation:
 nextflow -version
 ```
 
+You should see something like:
+
+```bash
+      N E X T F L O W
+      version 22.10.4 build 5837
+      created 26-10-2024 08:56 UTC (10:56 CEST)
+      cite doi:10.1038/nbt.3820
+      http://nextflow.io
+```
+
 **Install MAGMA**
 
 You can follow the installation instructions for MAGMA at its website (version 1.10): [Multi-marker Analysis of GenoMic Annotation](https://cncr.nl/research/magma/). According to the documentation MAGMA: is a self-contained executable and does not need to be installed. 
 
+Go to our software directory and create a 'magma' folder where the binaries will be located.
+
+```bash
+cd ~/bin
+mkdir magma
+```
+
+Download the `zip` file.
+
+```bash
+curl -v "https://vu.data.surfsara.nl/index.php/s/zkKbNeNOZAhFXZB/download" -H "Accept-Encoding: zip" > magma_v1.10.zip
+```
+
+Descompress `magma_v1.10.zip` file. We will decompress to the created folder `magma` (unsing `unzip -d` option)
+
+```bash
+unzip magma_v1.10.zip -d magma
+```
+
+Remove the `zip` file.
+
+```bash
+rm magma_v1.10.zip
+```
+
+Test MAGMA
+
+```bash
+./magma/magma
+```
+
+You should see something like:
+
+```bash
+No arguments specified. Please consult manual for usage instructions.
+
+Exiting MAGMA. Goodbye.
+```
+
+You can decide to include MAGMA's location into the PATH variable so it is called system-wide under your session. Otherwise, you must indicate where to find MAGMA when calling `magma_calc.nf` script; it has a parameter named `magma` for this purpose.
+
 **Install PLINK**
 
-Similarly, you can install PLINK (version 1.9) from its website: [population linkage](https://www.cog-genomics.org/plink/1.9/). PLINK is also self-contained executable so either you add to your path or reference the executable when using it. 
+Similarly, you can install PLINK (version 1.9) from its website: [population linkage](https://www.cog-genomics.org/plink/1.9/). PLINK is also self-contained executable so either you add to your path or reference the executable when using it.
+
+Again, please locate our software directory and create a 'plink' folder where the binaries will be saved.
+
+```bash
+cd ~/bin
+mkdir plink
+```
+
+Download the `zip` file
+
+```bash
+wget https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20241022.zip
+```
+
+Decompress `plink_linux_x86_64_20241022.zip` file. We will decompress to the created folder `plink` (unsing `unzip -d` option)
+
+```bash
+unzip plink_linux_x86_64_20241022.zip -d plink
+```
+
+Remove the `zip` file.
+
+```bash
+rm plink_linux_x86_64_20241022.zip
+```
+
+Test PLINK
+
+```bash
+./plink/plink --version
+```
+
+You should see something like:
+
+```bash
+PLINK v1.9.0-b.7.7 64-bit (22 Oct 2024)
+```
+
+We have to include PLINK's location into our PATH variable because there is no parameter in the pipeline to reference its location. Conversely, we did include a PLINK parameter to indicate PLINK version, either 1 or 2. Then, to add plink to the environment variable, you proceed as follow:
+
+```bash
+export PATH=$PATH:/home/username/bin/plink
+```
+
+You can add it to your `.bashrc` file to make it permanent. And then, `source ~/.bashrc` to apply changes in your current session.
+
 
 **Install R and some packages (required for the methods)**
 
@@ -128,11 +231,10 @@ echo 'local({
   })' >> /etc/R/Rprofile.site
 ```
 
-Install Bioconductor, `twilight` and `BioNet` (the latter contains the necessary files to use Heinz method).
+Install Bioconductor (`BiocManager`), `twilight` and `BioNet` (the latter contains the necessary files to use Heinz method).
 
 ```bash
-R -e "if (!requireNamespace('BiocManager', quietly = TRUE))
-            install.packages('BiocManager')"
+R -e "install.packages('BiocManager')"
 R -e "BiocManager::install('BioNet')"
 R -e "BiocManager::install('twilight')"
 ```
@@ -145,7 +247,7 @@ R -e "install.packages(c('tidyverse', 'cowplot', 'igraph', 'gprofiler2'))"
 
 **Install Python2**
 
-HotNet2 uses python2 to run some of its scripts; nowadays, it may be troublesome to install python 2.7 so we suggest to use a conda environment (although, we did not follow this alternative).
+HotNet2 uses python2 to run some of its scripts; nowadays, it may be troublesome to install `python 2.7` so you may opt to use a conda environment (see below for instructions).
 
 ```bash
 apt-get -y install python2-dev python2 python-pip
@@ -157,17 +259,96 @@ Add some python2 libraries needed for HotNet2:
 pip2 install numpy==1.12.1 scipy==0.19.0 networkx==1.11 h5py==2.7.0
 ```
 
+**Install Python2 using a Conda environment**
+
+We assume you have Conda installed, if not please refer to [Conda installing instructions](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html), you should follow the steps under the section 'Regular installation'. After you have installed Conda, you can continue with the next instructions.
+
+We will create a Conda environment called `gwas-bionets` with `Python 2.7` version installed and its corresponding `pip` version.
+
+```bash
+conda create -n gwas-bionets python=2.7 pip
+```
+
+You should see a last message saying:
+
+```bash
+# To activate this environment, use
+#
+#     $ conda activate gwas-bionets
+#
+# To deactivate an active environment, use
+#
+#     $ conda deactivate
+```
+
+So we will activate our environment.
+
+```bash
+conda activate gwas-bionets
+```
+
+Within the environment, we install the required packages for HotNet2:
+
+```bash
+conda install -c conda-forge numpy=1.12.1 scipy=0.19.0 networkx=1.11 h5py=2.7.0
+```
+
+
 **Install SigMod**
 
 You can install SigMod (version 2) from this website: [Strongly Interconnected Gene MODule](https://github.com/YuanlongLiu/SigMod/tree/20c561876d87a0faca632a6b93882fcffd719b17). This is an R package and it suffices to assign the parameter `sigmod_path` when calling the `bionets.nf` script, eg. `--sigmod_path="~/bin/SigMod_v2"`.
+
+You change directory to our software directory `bin` folder:
+
+```bash
+cd ~/bin
+```
+
+Download the `zip` file and decompress it (no need to create a folder since there is a folder inside including the code and manual):
+
+```bash
+wget https://github.com/YuanlongLiu/SigMod/raw/20c561876d87a0faca632a6b93882fcffd719b17/SigMod_v2.zip
+unzip SigMod_v2.zip
+```
 
 **Install HotNet2**
 
 You can install HotNet2 from this website: [HotNet2](https://github.com/raphael-group/hotnet2). Save the code in a folder and name it `hotnet2` whose location can therefore reference in the parameter `hotnet2_path` when calling `bionets.nf` script, eg. `--hotnet2_path="~/bin/hotnet2"`
 
+Move to out parent folder.
+
+```bash
+cd ~/bin
+```
+
+And to donwload the code, you can clone it using `git`. This will create folder called `hotnet2`
+
+```bash
+git clone https://github.com/raphael-group/hotnet2.git
+```
+
+_Or_, in case you cannot use `git`, you can use `wget` to download the `zip` file and decompress it.
+
+```bash
+wget --no-check-certificate -O hotnet2.zip https://github.com/raphael-group/hotnet2/archive/refs/heads/master.zip
+unzip hotnet2.zip
+```
+
+Change folder name.
+
+```bash
+mv hotnet2-master hotnet2
+```
+
+And remove the `zip` file (we remove them so we have a clean repository).
+
+```bash
+rm hotnet2.zip
+```
+
 **Install Heinz**
 
-You have already installed when installing the `BioNet` package from Bioconductor :-)
+You have already installed it when installing the `BioNet` package from Bioconductor :-)
 
 After that, we are all set!
 

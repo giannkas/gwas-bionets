@@ -82,6 +82,7 @@ bin/magma_calc.nf \
   --bpfolder "$bpfolder" \
   --gene_annot "$geneannot" \
   --prefix "$prefix" \
+  --magma "$magma" \
   --plink $plink \
   --out "$base_out_dir" \
   -dsl1 \
