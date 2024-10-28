@@ -311,6 +311,13 @@ wget https://github.com/YuanlongLiu/SigMod/raw/20c561876d87a0faca632a6b93882fcff
 unzip SigMod_v2.zip
 ```
 
+Change folder name
+
+```bash
+mv SigMod_v2 sigmod
+```
+
+
 **Install HotNet2**
 
 You can install HotNet2 from this website: [HotNet2](https://github.com/raphael-group/hotnet2). Save the code in a folder and name it `hotnet2` whose location can therefore reference in the parameter `hotnet2_path` when calling `bionets.nf` script, eg. `--hotnet2_path="~/bin/hotnet2"`

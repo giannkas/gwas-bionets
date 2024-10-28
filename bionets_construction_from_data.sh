@@ -21,11 +21,11 @@
 # profile: nextflow variable to denote which setting use.
 # dsl1: flag to restrict nextflow on domain-specific language 1 (DSL1), pipeline remains to be updated to DSL2.
 
-bpfiles=""
+bpfiles="/home/giannkas/Documents/ukb_gwas-tools/data/genotypes/pso_wes/pso_ukb23148_all_chr"
 k=5
-base_out_dir=""
+base_out_dir="/home/giannkas/Documents/ukb_gwas-tools/data/genotypes/pso_wes"
 plink=1
-profile=""
+profile="local"
 
 if [ $k -gt 1 ]; then
   bin/split_data.nf \
@@ -44,9 +44,9 @@ fi
 # the folder where data is, prefix parameter will handle to read files.
 # prefix: basename of the genetic data input.
 
-bpfolder=""
-base_out_dir=""
-prefix=""
+bpfolder="/home/giannkas/Documents/ukb_gwas-tools/data/genotypes/pso_wes"
+base_out_dir="/home/giannkas/Documents/ukb_gwas-tools/results/psoriasis/magma_scores"
+prefix="pso_ukb23148_all_chr"
 
 bin/snps_pvalue.nf \
   --bpfolder "$bpfolder" \
@@ -67,12 +67,12 @@ bin/snps_pvalue.nf \
 # magma: path to magma binary file.
 
 window_size=50
-snplocpval=""
-geneloc=""
-geneannot=""
+snplocpval="/home/giannkas/Documents/ukb_gwas-tools/results/psoriasis/magma_scores"
+geneloc="/home/giannkas/Documents/ukb_gwas-tools/data/genome_reference/NCBI37.3.gene.loc"
+geneannot="/home/giannkas/Documents/ukb_gwas-tools/results/psoriasis/magma_scores"
 #prefix=""
-prefix=""
-magma=""
+prefix="pso_ukb23148_all_chr"
+magma="/home/giannkas/bin/magma/magma"
 
 bin/magma_calc.nf \
   --window "$window_size"\
@@ -93,20 +93,21 @@ bin/magma_calc.nf \
 # net_ref: network of reference the methods will use for constructing subnetworks.
 # net_results: path to folder to save results out of the methods.
 # magma_scores: prefix of the filename where gene scores are stored and it is assumed to be located at net_results folder.
+# This normally should be 'pso.scores.genes.out_converted' since magma_calc.nf output a file with this name.
 # fdr: false discovery rate for use in Heinz method.
 # lfdr_cutoff: local false discovery rate parameter of use for sparse scores of the HotNet2 method (cutoff if P-value >= 0.125).
 # data_samp: boolean (1 or 0) to indicate whether the sampling (data splits) comes from the data or the gene scores (or p-values).
 # sigmod: path to sigmod files with method's internal code.
 # hotnet2: path to hotnet2 files with method's internal code.
 
-net_ref=""
-net_results=""
-magma_scores=""
+net_ref="/home/giannkas/Documents/ukb_gwas-tools/data/network_reference/biogrid_ppi.tsv"
+net_results="/home/giannkas/Documents/ukb_gwas-tools/results/psoriasis/magma_scores"
+magma_scores="pso.scores.genes.out_converted"
 fdr=0.5
 lfdr_cutoff=0.125
 data_samp=1
-sigmod_path=""
-hotnet2_path=""
+sigmod_path="/home/giannkas/bin/sigmod"
+hotnet2_path="/home/giannkas/bin/hotnet2"
 
 bin/bionets.nf \
   --network $net_ref\
