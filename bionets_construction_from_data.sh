@@ -21,9 +21,9 @@
 # profile: nextflow variable to denote which setting use.
 # dsl1: flag to restrict nextflow on domain-specific language 1 (DSL1), pipeline remains to be updated to DSL2.
 
-bpfiles="/home/giannkas/Documents/ukb_gwas-tools/data/genotypes/pso_wes/pso_ukb23148_all_chr"
+bpfiles=""
 k=5
-base_out_dir="/home/giannkas/Documents/ukb_gwas-tools/data/genotypes/pso_wes"
+base_out_dir=""
 plink=1
 profile="local"
 
@@ -44,9 +44,9 @@ fi
 # the folder where data is, prefix parameter will handle to read files.
 # prefix: basename of the genetic data input.
 
-bpfolder="/home/giannkas/Documents/ukb_gwas-tools/data/genotypes/pso_wes"
-base_out_dir="/home/giannkas/Documents/ukb_gwas-tools/results/psoriasis/magma_scores"
-prefix="pso_ukb23148_all_chr"
+bpfolder=""
+base_out_dir=""
+prefix=""
 
 bin/snps_pvalue.nf \
   --bpfolder "$bpfolder" \
@@ -67,12 +67,11 @@ bin/snps_pvalue.nf \
 # magma: path to magma binary file.
 
 window_size=50
-snplocpval="/home/giannkas/Documents/ukb_gwas-tools/results/psoriasis/magma_scores"
-geneloc="/home/giannkas/Documents/ukb_gwas-tools/data/genome_reference/NCBI37.3.gene.loc"
-geneannot="/home/giannkas/Documents/ukb_gwas-tools/results/psoriasis/magma_scores"
-#prefix=""
-prefix="pso_ukb23148_all_chr"
-magma="/home/giannkas/bin/magma/magma"
+snplocpval=""
+geneloc=""
+geneannot=""
+prefix=""
+magma=""
 
 bin/magma_calc.nf \
   --window "$window_size"\
@@ -100,14 +99,14 @@ bin/magma_calc.nf \
 # sigmod: path to sigmod files with method's internal code.
 # hotnet2: path to hotnet2 files with method's internal code.
 
-net_ref="/home/giannkas/Documents/ukb_gwas-tools/data/network_reference/biogrid_ppi.tsv"
-net_results="/home/giannkas/Documents/ukb_gwas-tools/results/psoriasis/magma_scores"
+net_ref=""
+net_results=""
 magma_scores="pso.scores.genes.out_converted"
 fdr=0.5
 lfdr_cutoff=0.125
 data_samp=1
-sigmod_path="/home/giannkas/bin/sigmod"
-hotnet2_path="/home/giannkas/bin/hotnet2"
+sigmod_path=""
+hotnet2_path=""
 
 bin/bionets.nf \
   --network $net_ref \
