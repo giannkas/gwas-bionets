@@ -58,6 +58,8 @@ if (params.help) {
 params.out = '.'
 params.k = 1
 params.d_samp = 1
+params.profile = params.profile ?: 'local'
+
 
 /////////////////////////////////////
 //  HEINZ METHOD
@@ -79,7 +81,7 @@ process heinz_call {
     def ith = ( K > 1 ) ? I : 0
 
     """
-      heinz.nf \
+      ${baseDir}/heinz.nf \
         --scores ${params.out}${dir_splits}/${magma}${split_suffix}.tsv \
         --tab2 ${net} \
         --out ${params.out}${dir_splits}/heinz \
@@ -88,7 +90,7 @@ process heinz_call {
         --d_samp ${samp} \
         -dsl1 \
         -with-report ${params.out}${dir_splits}/heinz/log \
-        -profile cbio_cluster
+        -profile ${params.profile}
     """
 }
 
@@ -112,7 +114,7 @@ process sigmod_call {
       def ith = ( K > 1 ) ? I : 0
 
     """
-      sigmod.nf \
+      ${baseDir}/sigmod.nf \
         --scores ${params.out}${dir_splits}/${magma}${split_suffix}.tsv \
         --tab2 ${net} \
         --sigmod_path ${sigmod}
@@ -121,7 +123,7 @@ process sigmod_call {
         --d_samp ${samp} \
         -dsl1 \
         -with-report ${params.out}${dir_splits}/sigmod/log \
-        -profile cbio_cluster
+        -profile ${params.profile}
     """
 
 }
@@ -139,7 +141,7 @@ process hotnet2_call {
     val lfdr from params.lfdr
     val K from params.k
     val samp from params.d_samp
-    val hotnet2 from params.hotnet2
+    val hotnet2 from params.hotnet2_path
 
   script:
     def split_suffix = (K > 1 && samp != 0) ? "_split_${I}" : (K > 1 && samp == 0) ? "_chunk_${I}" : ""
@@ -147,7 +149,7 @@ process hotnet2_call {
     def ith = ( K > 1 ) ? I : 0
 
     """
-      hotnet2.nf \
+      ${baseDir}/hotnet2.nf \
         --scores ${params.out}${dir_splits}/${magma}${split_suffix}.tsv  \
         --tab2 ${net} \
         --lfdr_cutoff ${lfdr} \
@@ -157,7 +159,7 @@ process hotnet2_call {
         --d_samp ${samp} \
         -dsl1 \
         -with-report ${params.out}${dir_splits}/hotnet2/log \
-        -profile cbio_cluster
+        -profile ${params.profile}
     """
 
 }

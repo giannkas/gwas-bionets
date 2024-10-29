@@ -110,7 +110,7 @@ sigmod_path="/home/giannkas/bin/sigmod"
 hotnet2_path="/home/giannkas/bin/hotnet2"
 
 bin/bionets.nf \
-  --network $net_ref\
+  --network $net_ref \
   --k $k \
   --d_samp $data_samp \
   --scores $magma_scores \
