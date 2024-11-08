@@ -213,7 +213,7 @@ You can add it to your `.bashrc` file to make it permanent. And then, `source ~/
 
 **Install R and some packages (required for the methods)**
 
-If you dont't have R installed in your machine (add your superuse credentials if needed to install software), then proceed as follows (or you can check instructions from [The Comprehensive R archive Network](https://cloud.r-project.org/):
+If you dont't have R installed in your machine (add your superuse credentials if needed to install software), then proceed as follows (or you can check instructions from [The Comprehensive R archive Network](https://cloud.r-project.org/)):
 
 ```bash
 wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
