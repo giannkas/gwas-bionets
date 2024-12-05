@@ -34,7 +34,7 @@ if (params.help) {
     log.info ""
     log.info ""
     log.info "Example : "
-    log.info "split_data.nf \\"
+    log.info "snps_pvalue.nf \\"
     log.info "  --bpfolder           path/to/parent_folder \\"
     log.info "  --k                 5 \\"
     log.info "  --prefix            my_prefix \\"
