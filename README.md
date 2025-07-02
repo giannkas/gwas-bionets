@@ -29,7 +29,7 @@ mkdir ~/bin/java
 cd ~/bin/java
 ```
 
-Download the `x64` version of Java as a `tar.gz` file from the Oracle website into your machine and decompress it.
+Download the `x64` version of Java JDK as a `tar.gz` file from the Oracle website into your machine and decompress it.
 
 ```bash
 wget https://download.oracle.com/java/17/archive/jdk-17.0.10_linux-x64_bin.tar.gz
@@ -296,7 +296,7 @@ conda install -c conda-forge numpy=1.12.1 scipy=0.19.0 networkx=1.11 h5py=2.7.0
 
 **Install SigMod**
 
-You can install SigMod (version 2) from this website: [Strongly Interconnected Gene MODule](https://github.com/YuanlongLiu/SigMod/tree/20c561876d87a0faca632a6b93882fcffd719b17). This is an R package and it suffices to assign the parameter `sigmod_path` when calling the `bionets.nf` script, eg. `--sigmod_path="~/bin/SigMod_v2"`.
+You can install SigMod (version 2) from this website: [Strongly Interconnected Gene MODule](https://github.com/YuanlongLiu/SigMod/tree/20c561876d87a0faca632a6b93882fcffd719b17). It contains R scripts, then it suffices to assign the parameter `sigmod_path` when calling the `bionets.nf` script, eg. `--sigmod_path="~/bin/SigMod_v2"`.
 
 You change directory to our software directory `bin` folder:
 
