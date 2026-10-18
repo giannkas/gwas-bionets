@@ -1,205 +1,220 @@
 #!/usr/bin/env nextflow
 
- params.out = "."
- params.hotnet2_path = null
+process make_network {
 
- tab2 = file(params.tab2)
- magma = file(params.scores)
- params.i = 0
- params.d_samp = 1
+  input:
+    path TAB2
+    path MAGMA
 
- split = params.i > 0 && params.d_samp != 0 ? "_split_${params.i}" : params.i > 0 && params.d_samp == 0 ? "_chunk_${params.i}" : ""
+  output:
+    path 'node_index.tsv', emit: node_index
+    path 'edge_list.tsv', emit: edge_list
 
+  script:
+    template 'io/tab2_2hotnet.R'
 
- // conditional hotnet2 input to handle Docker or Dockerless execution
- docker_hotnet2 = '/gwas-bionets/hotnet2'
+}
 
- if (params.hotnet2_path != null) {
-     HOTNET2 = file(params.hotnet2_path)
- } else {
-     HOTNET2 = docker_hotnet2
- }
+process sparse_scores {
 
- network_permutations = 100
- heat_permutations = 1000
- beta = 0.4
- params.lfdr_cutoff = 0.05
+  publishDir params.out, overwrite: true, mode: 'copy'
 
- process make_network {
+  input:
+    file MAGMA
+    val LFDR_CUTOFF
+    val SPLIT
 
-     input:
-         file TAB2 from tab2
+  output:
+    path "scored_genes${SPLIT}.sparse.txt", emit: sparse_scores
+    path "lfdr_plot${SPLIT}.pdf"
 
-     output:
-         file 'node_index.tsv' into node_index
-         file 'edge_list.tsv' into edge_list
+  """
+    #!/usr/bin/env Rscript
 
-     script:
-     template 'io/tab2_2hotnet.R'
+    library(tidyverse)
+    library(twilight)
+    library(cowplot)
 
- }
+    theme_set(theme_cowplot())
 
- process sparse_scores {
+    scores <- read_tsv('${MAGMA}') %>%
+      select(Gene, Pvalue) %>%
+      filter(Gene != "None") %>%
+      mutate(Gene = toupper(Gene)) %>%
+      group_by(Gene) %>%
+      filter(Pvalue == min(Pvalue)) %>%
+      ungroup() %>%
+      distinct(Gene, .keep_all = TRUE)
 
-     publishDir "$params.out", overwrite: true, mode: "copy"
+    lfdr <- twilight(scores\$Pvalue, B=1000)
+    lfdr <- tibble(Gene = scores\$Gene[as.numeric(rownames(lfdr\$result))],
+                magma_p = scores\$Pvalue[as.numeric(rownames(lfdr\$result))],
+                lfdr = lfdr\$result\$fdr)
 
-     input:
-     file SCORES from magma
-     val CUTOFF from params.lfdr_cutoff
-     val SPLIT from split
+    ggplot(lfdr, aes(x = magma_p, y = 1 - lfdr)) +
+     geom_line() +
+     geom_vline(xintercept = ${LFDR_CUTOFF}, color = 'red') +
+     labs(x = 'P-value', y = '1 - lFDR')
+    ggsave('lfdr_plot${SPLIT}.pdf', width=7, height=6)
 
-     output:
-     file "scored_genes${SPLIT}.sparse.txt" into sparse_scores
-     file "lfdr_plot${SPLIT}.pdf"
+    lfdr %>%
+     mutate(Pvalue = ifelse(magma_p < ${LFDR_CUTOFF}, magma_p, 1)) %>%
+     write_tsv('scored_genes${SPLIT}.sparse.txt')
+  """
 
-     """
-#!/usr/bin/env Rscript
+}
 
-library(tidyverse)
-library(twilight)
-library(cowplot)
+process magma2hotnet {
 
-theme_set(theme_cowplot())
+  input:
+    path MAGMA
 
-scores <- read_tsv('${SCORES}')
+  output:
+    path 'scores.ht', emit: scores
 
-lfdr <- twilight(scores\$Pvalue, B=1000)
-lfdr <- tibble(Gene = scores\$Gene[as.numeric(rownames(lfdr\$result))],
-            magma_p = scores\$Pvalue[as.numeric(rownames(lfdr\$result))],
-            lfdr = lfdr\$result\$fdr)
+  script:
+    template 'io/magma2hotnet.R'
 
-ggplot(lfdr, aes(x = magma_p, y = 1 - lfdr)) +
- geom_line() +
- geom_vline(xintercept = ${CUTOFF}, color = 'red') +
- labs(x = 'P-value', y = '1 - lFDR')
-ggsave('lfdr_plot${SPLIT}.pdf', width=7, height=6)
-
-lfdr %>%
- mutate(Pvalue = ifelse(magma_p < ${CUTOFF}, magma_p, 1)) %>%
- write_tsv('scored_genes${SPLIT}.sparse.txt')
-     """
-
- }
-
- process magma2hotnet {
-
-     input:
-         file MAGMA from sparse_scores
-
-     output:
-         file 'scores.ht' into scores
-
-     script:
-     template 'io/magma2hotnet.R'
-
- }
+}
 
 
- process make_h5_network {
+process make_h5_network {
 
-     input:
-         if (params.hotnet2_path != null) {
-             file HOTNET2
-         } else {
-             val HOTNET2
-         }
-         file NODE_IDX from node_index
-         file EDGE_LIST from edge_list
-         val BETA from beta
+  input:
+    path HOTNET2
+    path NODE_INDEX
+    path EDGE_LIST
+    val BETA
+    val NETWORK_PERMUTATIONS
 
-     output:
-         file "ppin_ppr_${BETA}.h5" into h5
-         file 'permuted' into permutations
+  output:
+    path "ppin_ppr_${BETA}.h5", emit: h5
+    path 'permuted', emit: permutations
 
-     """
-     python2 ${HOTNET2}/makeNetworkFiles.py \
- --edgelist_file ${EDGE_LIST} \
- --gene_index_file ${NODE_IDX} \
- --network_name ppin \
- --prefix ppin \
- --beta ${BETA} \
- --cores -1 \
- --num_permutations ${network_permutations} \
- --output_dir .
-     """
+  script:
+
+    """
+      python2 ${HOTNET2}/makeNetworkFiles.py \
+        --edgelist_file ${EDGE_LIST} \
+        --gene_index_file ${NODE_INDEX} \
+        --network_name ppin \
+        --prefix ppin \
+        --beta ${BETA} \
+        --cores -1 \
+        --num_permutations ${NETWORK_PERMUTATIONS} \
+        --output_dir .
+    """
 
  }
 
- process make_heat_data {
+process make_heat_data {
 
-     input:
-         if (params.hotnet2_path != null) {
-             file HOTNET2
-         } else {
-             val HOTNET2
-         }
-         file SCORES from scores
+  input:
+    path HOTNET2
+    path SCORES
 
-     output:
-         file 'heat.json' into heat
+  output:
+    path 'heat.json', emit: heat
 
-     """
-     python2 ${HOTNET2}/makeHeatFile.py \
- scores \
- --heat_file ${SCORES} \
- --output_file heat.json \
- --name gwas
-     """
+  script:
+    """
+    python2 ${HOTNET2}/makeHeatFile.py \
+      scores \
+      --heat_file ${SCORES} \
+      --output_file heat.json \
+      --name gwas
+    """
+}
 
- }
+process hotnet2 {
 
- process hotnet2 {
+  input:
+    val HOTNET2
+    path HEAT
+    path NETWORK
+    path PERMUTATIONS
+    val NETWORK_PERMUTATIONS
+    val HEAT_PERMUTATIONS
+    val BETA
 
-     input:
-         if (params.hotnet2_path != null) {
-             file HOTNET2
-         } else {
-             val HOTNET2
-         }
-         file HEAT from heat
-         file NETWORK from h5
-         file PERMS from permutations
-         val BETA from beta
+  output:
+    path 'consensus/subnetworks.tsv', emit: subnetworks
 
-     output:
-         file 'consensus/subnetworks.tsv' into subnetworks
+  script:
+    """
+    python2 ${HOTNET2}/HotNet2.py \
+      --network_files ${NETWORK} \
+      --permuted_network_path ${PERMUTATIONS}/ppin_ppr_${BETA}_##NUM##.h5 \
+      --heat_files ${HEAT} \
+      --network_permutations ${NETWORK_PERMUTATIONS} \
+      --heat_permutations ${HEAT_PERMUTATIONS} \
+      --num_cores -1 \
+      --output_directory .
+    """
 
-     """
-     python2 ${HOTNET2}/HotNet2.py \
- --network_files ${NETWORK} \
- --permuted_network_path ${PERMS}/ppin_ppr_${BETA}_##NUM##.h5 \
- --heat_files ${HEAT} \
- --network_permutations ${network_permutations} \
- --heat_permutations ${heat_permutations} \
- --num_cores -1 \
- --output_directory .
-     """
+}
 
- }
+process process_output {
 
- process process_output {
+  publishDir params.out, overwrite: true, mode: 'copy'
 
-     publishDir "$params.out", overwrite: true, mode: "copy"
+  input:
+    path SUBNETWORKS
+    val SPLIT
 
-     input:
-         file SUBNETWORKS from subnetworks
-         val SPLIT from split
+  output:
+    path "selected_genes${SPLIT}.hotnet2.tsv", emit: genes_hotnet2
 
-     output:
-         file "selected_genes${SPLIT}.hotnet2.tsv" into genes_hotnet2
+  script:
+    """
+    #!/usr/bin/env Rscript
 
-     """
- #!/usr/bin/env Rscript
+     library(tidyverse)
 
- library(tidyverse)
+     read_tsv('${SUBNETWORKS}', col_types = 'cc', comment = '#', col_names = F) %>%
+         select(X1) %>%
+         mutate(cluster = 1:n()) %>%
+         separate_rows(X1, sep = ' ') %>%
+         rename(gene = X1) %>%
+         write_tsv('selected_genes${SPLIT}.hotnet2.tsv')
+    """
 
- read_tsv('${SUBNETWORKS}', col_types = 'cc', comment = '#', col_names = F) %>%
-     select(X1) %>%
-     mutate(cluster = 1:n()) %>%
-     separate_rows(X1, sep = ' ') %>%
-     rename(gene = X1) %>%
-     write_tsv('selected_genes${SPLIT}.hotnet2.tsv')
-     """
+}
 
- }
+// Parameters
+params.out = "."
+params.hotnet2_path = null
+params.i = 0
+params.d_samp = 1
+params.lfdr_cutoff = 0.05
 
+workflow {
+  // input files
+  def tab2 = file(params.tab2)
+  def magma = file(params.scores)
+
+  def split = (params.i > 0 && params.d_samp != 0) ? "_split_${params.i}" : 
+            (params.i > 0 && params.d_samp == 0) ? "_chunk_${params.i}" : ""
+
+  def img_hotnet2 = "/gwas-bionets/hotnet2"
+  def HOTNET2 = (params.hotnet2_path != null && params.hotnet2_path != "/default/path") ? params.hotnet2_path : img_hotnet2
+
+  def network_permutations = 100
+  def heat_permutations = 1000
+  // def network_permutations = 10
+  // def heat_permutations = 20
+  def beta = 0.4
+
+  // processes
+  make_network(tab2, magma)
+  sparse_scores(magma, params.lfdr_cutoff, split)
+  magma2hotnet(sparse_scores.out.sparse_scores)
+
+  make_h5_network(HOTNET2, make_network.out.node_index, make_network.out.edge_list, beta, network_permutations)
+  make_heat_data(HOTNET2, magma2hotnet.out.scores)
+
+  hotnet2(HOTNET2, make_heat_data.out.heat, make_h5_network.out.h5, 
+    make_h5_network.out.permutations, network_permutations, 
+    heat_permutations, beta)
+  process_output(hotnet2.out.subnetworks, split)
+}

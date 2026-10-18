@@ -1,24 +1,112 @@
 #!/usr/bin/env nextflow
 
-log.info ""
-log.info "========================================================"
-log.info "|          [gwas-bionets] - snps_pvalue.nf          |"
-log.info "========================================================"
-log.info ""
-log.info "### General association analysis between SNPs and the trait (eg. psoriasis) ###"
-log.info ""
-log.info ""
-log.info ""
-log.info "--------------------------------------------------------"
-log.info "This program comes with NO WARRANTY"
-log.info "It is free software, see LICENSE for details about"
-log.info "redistribution and contribution."
-log.info "--------------------------------------------------------"
-log.info ""
+/////////////////////////////////////
+//  SNP P-VALUES COMPUTATION
+/////////////////////////////////////
+
+process compute_snps_pvalue {
+
+  publishDir { params.out + ((params.k as Integer) > 1 ? '/stable_consensus/data_splits/data_split_' + I : '') }, overwrite: true, mode: "copy"
+
+  input:
+    path data
+    val prefix
+    val K
+    val vplink
+    path covars
+    each I
+
+
+  output:
+    path { "${prefix}_snp_association_plink" + (K > 1 ? "_split_" + I : '') + (vplink == 1 ? ".assoc" : ".PHENO1.glm.logistic.hybrid") }, emit: snppvalues
+
+  script:
+    def split_suffix = K > 1 ? "_split_${I}" : ""
+    def dir_splits = K > 1 ? "/data_splits/data_split_${I}" : ""
+    // println "K=${K} I=${I}"
+    //plink2 --pfile ${data}${dir_splits}/${prefix}${split_suffix} --glm allow-no-covars hide-covar --out ${prefix}_snp_association_plink${split_suffix}
+    """
+    if [ $vplink -eq 1 ]; then
+      plink --bfile ${data}${dir_splits}/${prefix}${split_suffix} --assoc --allow-no-sex --out ${prefix}_snp_association_plink${split_suffix}
+    else
+      plink2 --bfile ${data}${dir_splits}/${prefix}${split_suffix} --glm --covar ${covars} --covar-name sex age PC1 PC2 --covar-variance-standardize --out ${prefix}_snp_association_plink${split_suffix}
+    fi
+
+    """
+}
+
+/////////////////////////////////////
+//  SNP P-VALUES REFORMAT
+//
+//  Modifying PLINK output to order 
+//  cols in compatible format for magma
+/////////////////////////////////////
+
+process snps_pvalue_reformat {
+
+  publishDir { params.out + ((params.k as Integer) > 1 ? '/stable_consensus/data_splits/data_split_' + task.index : '') }, overwrite: true, mode: "copy"
+
+
+  input:
+    path snppvalues
+    val prefix
+    val K
+    val vplink
+
+  output:
+    path { "${prefix}_snp_association_plink" + (K > 1 ? "_split_" + task.index : '') + ".tsv" }, emit: new_snppvalues
+
+  script:
+    def split_suffix = K > 1 ? "_split_${task.index}" : ""
+
+    """
+      #!/usr/bin/env Rscript
+
+        library(dplyr)
+        if ($vplink == 1) {
+          readr::read_table("$snppvalues") %>% 
+          select(SNP, CHR, BP, P) %>%
+          readr::write_tsv("${prefix}_snp_association_plink${split_suffix}.tsv")
+        } else {
+          readr::read_table("$snppvalues") %>% 
+          filter(TEST == "ADD") %>%
+          select(ID, `#CHROM`, POS, P) %>%
+          rename(SNP = ID, CHR = `#CHROM`, BP = POS) %>%
+          readr::write_tsv("${prefix}_snp_association_plink${split_suffix}.tsv")
+        }
+        
+    """
+
+}
+
+params.out = '.'
+params.k = 1
+params.plink = 1
+params.covars = ""
+params.bpfolder = ""
+params.prefix = ""
 
 // Help info ##########
 params.help = null
-if (params.help) {
+
+workflow {
+  log.info ""
+  log.info "========================================================"
+  log.info "|          [gwas-bionets] - snps_pvalue.nf          |"
+  log.info "========================================================"
+  log.info ""
+  log.info "### General association analysis between SNPs and the trait (eg. psoriasis) ###"
+  log.info ""
+  log.info ""
+  log.info ""
+  log.info "--------------------------------------------------------"
+  log.info "This program comes with NO WARRANTY"
+  log.info "It is free software, see LICENSE for details about"
+  log.info "redistribution and contribution."
+  log.info "--------------------------------------------------------"
+  log.info ""
+
+  if (params.help) {
     log.info ""
     log.info "Usage : snps_pvalue.nf --bpfolder <parent_folder> --k <knumber> --prefix <my_prefix> --plink <pversion> --out <filename>"
     log.info ""
@@ -45,85 +133,17 @@ if (params.help) {
     log.info ""
 
     exit 0
-}
+  }
 
+  def K = params.k as Integer
+  def vplink = params.plink as Integer
 
-params.out = '.'
-params.k = 1
-params.plink = 1
+  // Step 1: Compute SNP p-values
+  def snppvalues = compute_snps_pvalue(
+    params.bpfolder, params.prefix, K, vplink, params.covars, 1..K)
 
-/////////////////////////////////////
-//  SNP P-VALUES COMPUTATION
-/////////////////////////////////////
-
-process compute_snps_pvalue {
-
-  publishDir { params.out + (params.k > 1 ? '/data_splits/data_split_' + task.index : '') }, overwrite: true, mode: "copy"
-
-  input:
-    val data from params.bpfolder
-    val prx from params.prefix
-    val I from 1..params.k
-    val K from params.k
-    val V from params.plink
-
-
-  output:
-    file { "snp_association_plink" + (K > 1 ? "_split_" + I : '') + (V == 1 ? ".assoc" : ".PHENO1.glm.logistic.hybrid") } into snppvalues
-
-  script:
-    def split_suffix = K > 1 ? "_split_${I}" : ""
-    def dir_splits = K > 1 ? "/data_splits/data_split_${I}" : ""
-
-    """
-    if [ $V -eq 1 ]; then
-      plink --bfile ${data}${dir_splits}/${prx}${split_suffix} --assoc --allow-no-sex --out snp_association_plink${split_suffix}
-    else
-      plink2 --pfile ${data}${dir_splits}/${prx}${split_suffix} --glm allow-no-covars --out snp_association_plink${split_suffix}
-    fi
-
-    """
-}
-
-/////////////////////////////////////
-//  SNP P-VALUES REFORMAT
-//
-//  Modifying PLINK output to order 
-//  cols in compatible format for magma
-/////////////////////////////////////
-
-process snps_pvalue_reformat {
-
-  publishDir { params.out + (params.k > 1 ? '/data_splits/data_split_' + task.index : '') }, overwrite: true, mode: "copy"
-
-
-  input:
-    val I from 1..params.k
-    path assoc from snppvalues
-    val K from params.k
-    val V from params.plink
-
-  output:
-    path { "snp_association_plink" + (K > 1 ? "_split_" + I : '') + ".tsv" } into new_snppvalues
-
-  script:
-    def split_suffix = K > 1 ? "_split_${I}" : ""
-
-    """
-      #!/usr/bin/env Rscript
-
-        library(dplyr)
-        if (${V} == 1) {
-          readr::read_table("${assoc}") %>% 
-          select(SNP, CHR, BP, P) %>%
-          readr::write_tsv("snp_association_plink${split_suffix}.tsv")
-        } else {
-          readr::read_table("${assoc}") %>% 
-          select(ID, `#CHROM`, POS, P) %>%
-          rename(SNP = ID, CHR = `#CHROM`, BP = POS) %>%
-          readr::write_tsv("snp_association_plink${split_suffix}.tsv")
-        }
-        
-    """
+  // Step 2: Reformat SNP p-values
+  def new_snppvalues = snps_pvalue_reformat(
+      snppvalues, params.prefix, K, vplink)
 
 }

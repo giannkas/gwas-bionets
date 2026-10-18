@@ -1,49 +1,48 @@
 #!/usr/bin/env nextflow
 
+process sigmod {
+
+  publishDir params.out, overwrite: true, mode: 'copy'
+
+  input:
+    path SCORES
+    path NETWORK
+    val SIGMOD_PATH
+    val LAMBDA_MAX
+    val NMAX
+    val MAXJUMP
+    val SPLIT
+
+  output:
+    path "selected_genes${SPLIT}.sigmod.txt", emit: genes_sigmod
+
+  script:
+    template 'discovery/run_sigmod.R'
+}
+
 params.out = '.'
 params.lambdamax = 1
-params.nmax = 300
-params.maxjump = 10
+params.nmax = 500
+params.maxjump = 30
 params.sigmod_path = null
-docker_sigmod = '/gwas-bionets/sigmod'
 params.i = 0
 params.d_samp = 1
 
+workflow {
 
-split = params.i > 0 && params.d_samp != 0 ? "_split_${params.i}" : params.i > 0 && params.d_samp == 0 ? "_chunk_${params.i}" : ""
+  def img_sigmod = "/gwas-bionets/sigmod"
+  def sigmod_path = (params.sigmod_path != null && params.sigmod_path != "/default/path") ? params.sigmod_path : img_sigmod
 
+  // Split suffix
+  def split = (params.i > 0 && params.d_samp != 0) ? "_split_${params.i}" : 
+            (params.i > 0 && params.d_samp == 0) ? "_chunk_${params.i}" : ""
 
-// conditional SigMod input to handle Docker or Dockerless execution
-if (params.sigmod_path != null) {
-    SIGMOD_PATH = file(params.sigmod_path) 
-} else {
-    SIGMOD_PATH = docker_sigmod
-}
+  println "The value of sigmod_path is: ${sigmod_path}"
 
-// annotation
-MAGMA_OUT = file(params.scores)
-TAB2 = file(params.tab2)
+  // input files
+  def scores = file(params.scores)
+  def network = file(params.network)
 
-process sigmod {
-
-    publishDir "$params.out", overwrite: true, mode: "copy"
-
-    input:
-        file MAGMA_OUT
-        file TAB2
-        if (params.sigmod_path != null) {
-           file SIGMOD_PATH
-        } else {
-            val SIGMOD_PATH
-        }
-        val LAMBDAMAX from params.lambdamax
-        val NMAX from params.nmax
-        val MAXJUMP from params.maxjump
-        val SPLIT from split
-
-    output:
-        file "selected_genes${SPLIT}.sigmod.txt" into genes_sigmod
-
-    script:
-    template 'discovery/run_sigmod.R'
+  // run sigmod process
+  sigmod(scores, network, sigmod_path, params.lambdamax, params.nmax, params.maxjump, split)
 }
