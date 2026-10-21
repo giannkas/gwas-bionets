@@ -1,9 +1,55 @@
 #!/usr/bin/env nextflow
 
+// =============================================================================
+// magma_calc.nf  -  Step 3 of gwas-bionets: MAGMA annotation and gene analysis
+// =============================================================================
+// Uses MAGMA (v1.10) to map SNPs onto genes and to turn SNP P-values into
+// gene-level association statistics, for each data split. See the MAGMA manual.
+//
+// Workflow
+//   1. annotation_step     magma --annotate window=<W> ...  -> '<prefix>[_split_<I>].genes.annot'
+//   2. gene_analysis_step  magma --bfile ... --pval <snp P-values> N=<samples> --gene-annot ...
+//                          -> '<prefix>.scores[_split_<I>].genes.out' (+ '.genes.raw', '.log').
+//                          The genotypes are the LD reference; N is the number of samples
+//                          (lines of the .fam file) of the split.
+//   3. gene_ids_reformat   R script: converts the Entrez gene IDs of MAGMA's output into gene
+//                          symbols (g:Profiler, R package gprofiler2: needs internet access),
+//                          keeps one row per gene (the smallest P-value), drops unmapped or
+//                          incomplete rows and renames the columns to Gene, Chr, nSNPs, Start,
+//                          Stop, Test (z-statistic) and Pvalue
+//                          -> '<prefix>.scores.genes.out_converted[_split_<I>].tsv'
+//
+// Parameters (command line, as --name value)
+//   --magma        Path to the MAGMA binary (default 'magma', taken from the PATH).
+//   --window       Window, in kilobases, added upstream and downstream of each gene when
+//                  annotating SNPs (default 50).
+//   --k            Number of splits; it must match the --k used in split_data.nf (default 1).
+//   --snploc_pval  Folder with the SNP association files written by snps_pvalue.nf
+//                  ('<prefix>_snp_association_plink[_split_<I>].tsv', in
+//                  <folder>/stable_consensus/data_splits/data_split_<I>/ when k > 1).
+//   --gene_loc     Gene location file for the genome build of the data (e.g. NCBI37.3.gene.loc).
+//   --bpfolder     Parent folder of the PLINK 1 genotype files (bed/bim/fam); with k > 1 they
+//                  are read from <bpfolder>/data_splits/data_split_<I>/<prefix>_split_<I>.
+//   --prefix       Basename of the genetic data input.
+//   --out          Output folder (default '.'); with k > 1 results go to
+//                  <out>/stable_consensus/data_splits/data_split_<I>/.
+//   --gene_annot, --plink   Accepted for compatibility but NOT read by this script:
+//                  the annotation files come from the annotation step of the same run, and
+//                  MAGMA always works on PLINK 1 files.
+//   --help         Print the usage and exit.
+//
+// Requirements: MAGMA; R with dplyr, tidyr, readr and gprofiler2.
+
 /////////////////////////////////////
 //  MAGMA ANNOTATION
 /////////////////////////////////////
 
+// annotation_step: one task per split I (1..K).
+//   window      --window, in kb
+//   snplocpval  --snploc_pval (folder with the SNP association files)
+//   geneloc     --gene_loc
+//   magma       --magma, K, I, prefix: MAGMA binary, number of splits, split index, --prefix
+//   emits       genesannot ('.genes.annot') and annotlog ('.log')
 process annotation_step {
 
   publishDir { params.out + ((params.k as Integer) > 1 ? '/stable_consensus/data_splits/data_split_' + I : '') }, mode: "copy"
@@ -38,6 +84,11 @@ process annotation_step {
 //  MAGMA GENE ANALYSIS
 /////////////////////////////////////
 
+// gene_analysis_step: one task per split.
+//   data        --bpfolder (genotypes, LD reference)
+//   genesannot  annotation file(s) from annotation_step
+//   snplocpval  folder with the SNP P-values; N = number of lines of the split's .fam file
+//   emits       genesmag ('.genes.out'), generaw ('.genes.raw') and genelog ('.log')
 process gene_analysis_step {
 
   publishDir { params.out + ((params.k as Integer) > 1 ? '/stable_consensus/data_splits/data_split_' + task.index : '') }, mode: "copy"
@@ -84,6 +135,8 @@ process gene_analysis_step {
 //  FORMATTING GENE IDS FOR COMPATIBILITY
 //////////////////////////////////////////////
 
+// gene_ids_reformat: converts Entrez IDs to gene symbols and tidies the gene table
+// (see the header). emits new_geneids: '<prefix>.scores.genes.out_converted[_split_<n>].tsv'
 process gene_ids_reformat {
 
   publishDir { params.out + ((params.k as Integer) > 1 ? '/stable_consensus/data_splits/data_split_' + task.index : '') }, mode: "copy"
@@ -123,18 +176,18 @@ process gene_ids_reformat {
 
 }
 
-params.out = '.'
-params.k = 1
-params.window = 50
-params.plink = 1
-params.magma = "magma"
-params.snploc_pval = ""
-params.gene_loc = ""
-params.bpfolder = ""
-params.prefix = ""
+params.out = '.'             // --out: output folder
+params.k = 1                 // --k: number of splits (same as in split_data.nf)
+params.window = 50            // --window: SNP-to-gene window in kb (up- and downstream)
+params.plink = 1             // --plink: not read by this script (MAGMA uses PLINK 1 files)
+params.magma = "magma"       // --magma: path to the MAGMA binary
+params.snploc_pval = ""       // --snploc_pval: folder with the SNP association files (Step 2 output)
+params.gene_loc = ""          // --gene_loc: gene location file
+params.bpfolder = ""         // --bpfolder: parent folder of the PLINK 1 genotype files
+params.prefix = ""           // --prefix: basename of the genetic data input
 
 // Help info ##########
-params.help = null
+params.help = null            // --help: print the usage and exit
 
 // Workflow
 workflow {
@@ -157,44 +210,39 @@ workflow {
   log.info ""
 
   if (params.help) {
-    log.info ""
-    log.info "Usage : magma_calc.nf --magma <binmagma> --window <window_size> --k <knumber> --snploc_pval <snps_file> --gene_loc <genes_file> \\"
-    log.info "                      --bpfolder <genetic_data> --prefix <my_prefix> --plink <pversion> --gene_annot <annot_file> \\"
-    log.info "                      --out <filename>"
+    log.info "Usage : magma_calc.nf --magma <binmagma> --window <window_size> --k <knumber> --snploc_pval <snps_folder> --gene_loc <genes_file> \\"
+    log.info "                      --bpfolder <genetic_data> --prefix <my_prefix> --out <filename>"
     log.info ""
     log.info "  --magma       magma binary location, if not given its default value will be used, which is 'magma' called from PATH."
-    log.info "  --window      number of base-pairs in kilobases (outside the transcription region) to be used as a range where"
-    log.info "                SNPs may influence a gene."
+    log.info "  --window      window size, in kilobases, added upstream and downstream of each gene (outside the transcription"
+    log.info "                region) to be used as a range where SNPs may influence a gene (default 50)."
     log.info "  --k           number of times data was split, it must be in accordance to the previous k for splitting the data."
-    log.info "  --snploc_pval SNP location file, it can be the file from PLINK snp-pvalues or .bim file (see MAGMA manual for more information)."
+    log.info "  --snploc_pval folder with the SNP association files produced by snps_pvalue.nf (the --out of that step),"
+    log.info "                '<prefix>_snp_association_plink[_split_<I>].tsv' (columns SNP, CHR, BP, P). With k > 1 they are"
+    log.info "                searched in <folder>/stable_consensus/data_splits/data_split_<I>/."
     log.info "  --gene_loc    gene location file, relative to a particular human genome reference (eg. NCBI37.3.gene.loc)."
-    log.info "  --bpfolder    path to parent folder where genotypes has been split and where 'data_splits' folder resides so it can "
+    log.info "                Its genome build must match that of the genotype data."
+    log.info "  --bpfolder    path to parent folder where genotypes has been split and where 'data_splits' folder resides so it can"
     log.info "                search iteratively the genetic data input (bed, bim and fam files) for each data split (1, 2, ..., k)."
     log.info "                If there was no splitting process, then providing the parent folder will suffice. MAGMA works on PLINK1 format."
-    log.info "  --gene_annot  path to parent folder where the corresponding annotation files has been created depending on the splits."
-    log.info "                This folder should also point to the place where 'data_splits' folder is, normally different from that of the"
-    log.info "                genotypes because it is part of the analysis outputs."
     log.info "  --prefix      prefix or basename for the genetic data input (eg. my_prefix.bed, my_prefix.bim, my_prefix.fam)."
-    log.info "  --plink       version of PLINK to use (1 or 2), note that pgen, pvar and psam is for PLINK2, whereas"
-    log.info "                bed, bim and fam corresponds to PLINK. Since MAGMA only works on PLINK format so this value must be 1."
-    log.info "  --out         path/to/filename where output files will be saved."
+    log.info "  --out         path/to/folder where output files will be saved. With k > 1 results go to"
+    log.info "                <out>/stable_consensus/data_splits/data_split_<I>/."
+    log.info "  --gene_annot  accepted for compatibility but not read: annotation files are taken from the annotation step of the same run."
+    log.info "  --plink       accepted for compatibility but not read: MAGMA only works on PLINK 1 format (bed, bim and fam)."
+    log.info "  --help        show this message and exit."
     log.info ""
-    log.info ""
-    log.info ""
-    log.info "Example : "
+    log.info "Example :"
     log.info "magma_calc.nf \\"
     log.info "  --magma             path/to/bin/magma \\"
     log.info "  --window            50 \\"
     log.info "  --k                 5 \\"
-    log.info "  --snploc_pval       path/to/snp_locations \\"
+    log.info "  --snploc_pval       path/to/snp_results_folder \\"
     log.info "  --gene_loc          path/to/gene_locations \\"
     log.info "  --bpfolder          path/to/genotypes_folder \\"
-    log.info "  --gene_annot        path/to/annotations_folder \\"
     log.info "  --prefix            my_prefix \\"
-    log.info "  --plink             1 \\"
     log.info "  --out               path/to/my_output \\"
     log.info "  -profile            my_cluster \\"
-    log.info ""
 
     exit 0
   }

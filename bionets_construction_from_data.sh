@@ -173,7 +173,8 @@ nextflow2 run bin_gwas-bionets2/magma_calc.nf \
 #                 a tab-separated list of interacting gene pairs. It must be
 #                 undirected and simple (no self-loops or duplicated edges), and
 #                 gene identifiers must match exactly (case-sensitive) those in
-#                 the gene scores file.
+#                 the gene scores file. Headers must be 'Official Symbol Interactor A', and
+#                 'Official Symbol Interactor B' to be read by the network methods.
 #   net_results   Folder where the results of the methods are saved. The gene
 #                 scores file (`magma_scores`) is expected to be located here.
 #   magma_scores  Filename of the gene-level scores produced in Step 3, after
@@ -233,6 +234,7 @@ r=0.1
 sigmod_path=""
 hotnet2_path=""
 hhotnet_path=""
+connectivity=1
 repetitions=100000
 permutations=100
 beta=0.5
@@ -249,6 +251,7 @@ nextflow2 run bin_gwas-bionets2/bionets.nf \
   --dmgwas_d "$d" \
   --dmgwas_r "$r" \
   --lfdr "$lfdr_cutoff" \
+  --conn "$connectivity" \
   --reps "$repetitions" \
   --perms "$permutations" \
   --beta "$beta" \
