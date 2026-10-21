@@ -1,4 +1,4 @@
-# SAMPLES, K, I
+# samfam, K, I
 
 # Generate a pseudorandom byte stream. Using openssl command and AES-256-CTR cipher.
 get_seeded_random()
@@ -8,17 +8,17 @@ get_seeded_random()
     </dev/zero 2>/dev/null
 }
 
-# Compute number of lines (non-empty lines) in the SAMPLES file.
-total_samples=\$(grep -c '^' ${SAMPLES})
+# Compute number of lines (non-empty lines) in the samfam file.
+total_samples=\$(grep -c '^' $samfam)
 
 # Number of samples to be included in each subsample.
 n_samples=\$(expr \$total_samples - \$total_samples / $K)
 
 # We extract different basename (without extension) depending on the PLINK version.
-if [ $V -eq 1 ]; then
-    nosuffix=\$(basename -s .fam ${SAMPLES})
+if [ $vplink -eq 1 ]; then
+    nosuffix=\$(basename -s .fam $samfam)
 else
-    nosuffix=\$(basename -s .psam ${SAMPLES})
+    nosuffix=\$(basename -s .psam $samfam)
 fi
 
 # We add a suffix split if K is greater than 1, otherwise we are not splitting.
@@ -32,8 +32,8 @@ fi
 
 # We create the subsample files by shuffling lines and according to n_samples number.
 # It creates different file formats whether PLINK is 1 or 2.
-if [ $V -eq 1 ]; then
-    cut -f1,2 -d' ' ${SAMPLES} | shuf --random-source=<(get_seeded_random ${I}) | tail -n \$n_samples >\${nosuffix}\${split_suffix}.fam
+if [ $vplink -eq 1 ]; then
+    cut -f1,2 -d' ' $samfam | shuf --random-source=<(get_seeded_random ${I}) | tail -n \$n_samples > \${nosuffix}\${split_suffix}.fam
 else
-    cut -f1 ${SAMPLES} | shuf --random-source=<(get_seeded_random ${I}) | tail -n \$n_samples >\${nosuffix}\${split_suffix}.psam
+    cut -f1 $samfam | shuf --random-source=<(get_seeded_random ${I}) | tail -n \$n_samples > \${nosuffix}\${split_suffix}.psam
 fi
