@@ -1,6 +1,6 @@
 # gwas-bionets
 
-gwas-bionets is a repository to run different biological network methods, namely [Heinz](https://academic.oup.com/bioinformatics/article/24/13/i223/231653?login=true), [HotNet2](https://www.nature.com/articles/ng.3168), and [SigMod](https://academic.oup.com/bioinformatics/article/33/10/1536/2874362). The input is a typical fileset for GWAS analysis in PLINK 1.9 format (.bim, .bed and .fam). The general workflow for constructing a consensus network is as follows:
+gwas-bionets is a repository to run different biological network methods, namely [Heinz](https://academic.oup.com/bioinformatics/article/24/13/i223/231653?login=true), [HotNet2](https://www.nature.com/articles/ng.3168) (or [Hierarchical HotNet](https://academic.oup.com/bioinformatics/article/34/17/i972/5093236)), [dmGWAS](https://academic.oup.com/bioinformatics/article/31/15/2591/187753?login=true), [SigMod](https://academic.oup.com/bioinformatics/article/33/10/1536/2874362), and [LEAN](https://academic.oup.com/bioinformatics/article/33/5/701/2731024?login=true). The input is a typical fileset for GWAS analysis in PLINK 1.9 format (.bim, .bed and .fam). The general workflow for constructing a consensus network is as follows:
 
 [<img src="img/consensus_pipeline.svg" width="700"/>](img/consensus_pipeline.svg)
 
@@ -8,11 +8,11 @@ And for generating a stable consensus network (when the _k_ parameter is greater
 
 [<img src="img/stable_consensus_pipeline.svg" width="700"/>](img/stable_consensus_pipeline.svg)
 
-For the latter image, we used _k_=5 as illustration but you can change to a greater number which makes sense in your experiments. Also, 1H,2H, ... corresponds to the solutions outputted by Heinz; 1N, 2N, ... solutions of HotNet2; and 1S, 2S, ... solutions of SigMod. We omitted the filtering step in the pipeline, so please ensure your data is filtered prior. We used BioGRID as a source for the PPI, but you can choose another network of reference, considering a two-column header indicating the connection between two molecules (genes, proteins, ...) as the format, i.e., 'Official Symbol Interactor A' and 'Official Symbol Interactor B'.
+For the latter image, we used _k_=5 as illustration but you can change to a greater number which makes sense in your experiments. Also, 1H,2H, ... corresponds to the solutions outputted by Heinz; 1N, 2N, ... solutions of HotNet2 (or Hierarchical HotNet); 1S, 2S, ... solutions of SigMod; 1D, 2D, ... solutions of dmGWAS; 1L, 2L, ... solutions of LEAN. We omitted the filtering step in the pipeline, so please ensure your data is filtered prior. We used mainly used BioGRID as a source for the PPI, but you can choose another network of reference, considering a two-column header indicating the connection between two molecules (genes, proteins, ...) as the format, i.e., 'Official Symbol Interactor A' and 'Official Symbol Interactor B'.
 
 ## Software requirements
 
-This code uses software already outdated so it is encouraged to follow the installation process; otherwise, it may not work. An update of the methods and requirements is planned but still needs to be carried out. Due to not having administrative rights or to avoiding conflicts, most software needs to be installed locally or within an environment, and paths to these installations must be redirected. It is assumed that you run these commands on a Unix-like machine.
+This code uses software already outdated so it is encouraged to follow the installation process; otherwise, it may not work. Due to not having administrative rights or to avoiding conflicts, most software needs to be installed locally or within an environment, and paths to these installations must be redirected. It is assumed that you run these commands on a Unix-like machine.
 
 Ideally, create a folder in your home directory to store all software. For example:
 
@@ -29,19 +29,20 @@ mkdir ~/bin/java
 cd ~/bin/java
 ```
 
-Download the `x64` version of Java JDK as a `tar.gz` file from the Oracle website into your machine and decompress it.
+Download the `x64` version of Java JDK as a `tar.gz` file from the Oracle website into your machine and decompress it. In this case is version 24, but you can check [latest releases](https://www.oracle.com/java/technologies/downloads/).
+
 
 ```bash
-wget https://download.oracle.com/java/17/archive/jdk-17.0.10_linux-x64_bin.tar.gz
-tar xzfv jdk-17.0.10_linux-x64_bin.tar.gz 
-rm jdk-17.0.10_linux-x64_bin.tar.gz
+wget https://download.oracle.com/java/24/latest/jdk-24_linux-x64_bin.tar.gz
+tar xzfv jdk-24_linux-x64_bin.tar.gz 
+rm jdk-24_linux-x64_bin.tar.gz
 ```
 
 Export the path to the `bin` directory of this folder into the system variable `$PATH` to make Java executable. Also, export the `$JAVA_HOME` variable indicating the root directory. Ideally, add these to `~/.bashrc` to avoid repeating the process on each server connection or reboot, eg.
 
 ```bash
-export PATH=/home/username/bin/java/jdk-17.0.10/bin:$PATH
-export JAVA_HOME=/home/username/bin/java/jdk-17.0.10
+export PATH=/home/username/bin/java/jdk-24.0.1/bin:$PATH
+export JAVA_HOME=/home/username/bin/java/jdk-24.0.1
 ```
 
 You may need to source `.bashrc` file before checking installation, so type:
@@ -59,62 +60,14 @@ java -version
 You should see something like:
 
 ```bash
-java version "17.0.10" 2024-01-16 LTS
-Java(TM) SE Runtime Environment (build 17.0.10+11-LTS-240)
-Java HotSpot(TM) 64-Bit Server VM (build 17.0.10+11-LTS-240, mixed mode, sharing)
-```
+java version "24.0.1" 2025-04-15
+Java(TM) SE Runtime Environment (build 24.0.1+9-30)
+Java HotSpot(TM) 64-Bit Server VM (build 24.0.1+9-30, mixed mode, sharing)
+``` 
 
 **Install Nextflow**
 
-Change directory to our software directory.
-
-```bash
-cd ~/bin
-```
-
-Download Nextflow version 22.10.4 and decompress:
-
-```bash
-wget https://github.com/nextflow-io/nextflow/archive/refs/tags/v22.10.4.tar.gz
-tar -xzvf /gwas-bionets/nextflow/v-22.10.4.tar.gz
-```
-
-Change folder name and navigate to it.
-
-```bash
-mv nextflow-22.10.4 nextflow
-cd nextflow
-```
-
-Compile and install it:
-
-```bash
-make compile
-make pack
-make install
-```
-
-Add to your path:
-
-```bash
-export PATH=$PATH:/home/username/bin/nextflow
-```
-
-Test the installation:
-
-```bash
-nextflow -version
-```
-
-You should see something like:
-
-```bash
-      N E X T F L O W
-      version 22.10.4 build 5837
-      created 26-10-2024 08:56 UTC (10:56 CEST)
-      cite doi:10.1038/nbt.3820
-      http://nextflow.io
-```
+People at [sequera](https://seqera.io/) provide better explanations and documentation about Nextflow than I could offer. Please follow the [installation steps there](https://www.nextflow.io/docs/latest/install.html#install-nextflow).
 
 **Install MAGMA**
 
@@ -213,7 +166,7 @@ You can add it to your `.bashrc` file to make it permanent. And then, `source ~/
 
 **Install R and some packages (required for the methods)**
 
-If you dont't have R installed in your machine (add your superuse credentials if needed to install software), then proceed as follows (or you can check instructions from [The Comprehensive R archive Network](https://cloud.r-project.org/)):
+If you dont't have R installed in your machine (add your superuser credentials if needed to install software), then proceed as follows (or you can check instructions from [The Comprehensive R archive Network](https://cloud.r-project.org/)):
 
 ```bash
 wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
@@ -242,10 +195,10 @@ R -e "BiocManager::install('twilight')"
 Install R packages, `tidyverse`, `cowplot`, `igraph` and `gprofiler2`:
 
 ```bash
-R -e "install.packages(c('tidyverse', 'cowplot', 'igraph', 'gprofiler2'))" 
+R -e "install.packages(c('tidyverse', 'cowplot', 'igraph', 'gprofiler2', 'foreach'))" 
 ```
 
-**Install Python2**
+**Install Python2 (this is required for HotNet2 only, you can skip it and use Hierarchical HotNet instead)**
 
 HotNet2 uses python2 to run some of its scripts; nowadays, it may be troublesome to install `python 2.7` so you may opt to use a conda environment (see below for instructions).
 
@@ -293,6 +246,33 @@ Within the environment, we install the required packages for HotNet2:
 conda install -c conda-forge numpy=1.12.1 scipy=0.19.0 networkx=1.11 h5py=2.7.0
 ```
 
+**Install LEAN**
+
+As of the time of writing this README, LEANR has been [removed](https://cran.r-project.org/web/packages/LEANR/index.html) from the CRAN repository. Therefore, a manual installation is recommended.
+
+```bash
+wget https://cran.r-project.org/src/contrib/Archive/LEANR/LEANR_1.4.9.tar.gz
+```
+
+And then install it using `R console`.
+
+```R
+install.packages("path/to/LEANR_1.4.9.tar.gz", repos = NULL, type = "source")
+```
+
+**Install dmGWAS**
+
+The pipeline uses dmGWAS v3.0 or EW_dmGWAS released on October 4, 2014, one can refer to this [page](https://bioinfo.uth.edu/dmGWAS/) for more information. Download it as follows:
+
+```bash
+wget https://bioinfo.uth.edu/dmGWAS/dmGWAS_3.0.tar.gz
+```
+
+And then install it using `R console`
+
+```bash
+install.packages("path/to/dmGWAS_3.0.tar.gz", repos = NULL, type = "source")
+```
 
 **Install SigMod**
 
@@ -322,7 +302,7 @@ mv SigMod_v2 sigmod
 
 You can install HotNet2 from this website: [HotNet2](https://github.com/raphael-group/hotnet2). Save the code in a folder and name it `hotnet2` whose location can therefore reference in the parameter `hotnet2_path` when calling `bionets.nf` script, eg. `--hotnet2_path="~/bin/hotnet2"`
 
-Move to out parent folder.
+Move to our parent folder.
 
 ```bash
 cd ~/bin
@@ -353,6 +333,41 @@ And remove the `zip` file (we remove them so we have a clean repository).
 rm hotnet2.zip
 ```
 
+**Install Hierarchical HotNet (HHotNet)**
+
+You can install HHotNet from this website: [HHotNet](https://github.com/raphael-group/hierarchical-hotnet). Save the code in a folder and name it `hhotnet` whose location can therefore reference in the parameter `hhotnet_path` when calling `bionets.nf` script, eg. `--hhotnet_path="~/bin/hhotnet"`
+
+Move to our parent folder.
+
+```bash
+cd ~/bin
+```
+
+And to donwload the code, you can clone it using `git`. This will create folder called `hierarchical-hotnet`
+
+```bash
+git clone https://github.com/raphael-group/hierarchical-hotnet.git
+```
+
+_Or_, in case you cannot use `git`, you can use `wget` to download the `zip` file and decompress it.
+
+```bash
+wget --no-check-certificate -O hierarchical-hotnet.zip https://github.com/raphael-group/hierarchical-hotnet/archive/refs/heads/master.zip
+unzip hierarchical-hotnet.zip
+```
+
+Change folder name.
+
+```bash
+mv hierarchical-hotnet-master hhotnet
+```
+
+And remove the `zip` file (we remove them so we have a clean repository).
+
+```bash
+rm hierarchical-hotnet.zip
+```
+
 **Install Heinz**
 
 You have already installed it when installing the `BioNet` package from Bioconductor :-)
@@ -365,7 +380,7 @@ After that, we are all set!
 
 `bionets_construction_from_data.sh`
 
-2. This script works with the scores previously computed using a software like [MAGMA](https://cncr.nl/research/magma/) for the gene P-values. Again, a _k_ parameter greater than 1 generates k-fold solutions. As above, we conceived the script to be modified to provide the parameters.
+2. This script works with the scores previously computed using a software like [MAGMA](https://cncr.nl/research/magma/) for the gene p-values. Again, a _k_ parameter greater than 1 generates k-fold solutions. As above, we conceived the script to be modified to provide the parameters. Note that this script is no longer in use, it can be deprecated.
 
 `bionets_construction_from_scores.sh`
 
