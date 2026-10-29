@@ -1,3 +1,60 @@
+# =============================================================================
+# stable_consensus_net.R  -  Stable consensus network across data splits
+# =============================================================================
+# Like consensus_net.R, but uses the results of the network methods on every data
+# split (Step 4 of gwas-bionets, bionets.nf) to keep only genes that are selected
+# repeatedly: a gene is part of the stable consensus when it appears in at least 7 of
+# the 25 solutions (5 methods x 5 splits).
+# Author: Giann Karlo Aguirre-Samboní
+#
+# The general procedure of this script is as follows:
+#   1. Loads a reference PPI network.
+#   2. For every split j = 1..nsplits and every method (Heinz, HotNet2, SigMod, dmGWAS,
+#      LEAN), reads the selected genes. It keeps (a) the union of genes per method over the
+#      splits, and (b) the number of solutions (method x split) in which each gene appears.
+#   3. Keeps the genes found in at least 7 solutions (gene_set7; threshold hard-coded) and
+#      annotates them with cGWAS / MAGMABH membership (genes annotated to classical GWAS
+#      hits; genes significant in MAGMA after Benjamini-Hochberg correction).
+#   4. Writes the gene table and the layout, and saves a figure in which each node is a pie
+#      with one slice per method that selected the gene in ANY split; the label fill shows
+#      whether the gene is also in MAGMABH and/or cGWAS.
+#
+# Inputs (edit the paths below; '<prefix>' is the basename used in the pipeline)
+#   PPI file       Tab-separated file whose first two columns are the official gene
+#                  symbols of each interaction (BioGRID tab2: 'Official Symbol Interactor A/B').
+#   results_gwas   Folder with '<prefix>.genes.annot_gene_ids_names.tsv': table with a
+#                  'Gene' column listing the genes annotated to the classical GWAS hits.
+#   results_44249  Folder '<out>/stable_consensus/data_splits/' of Step 4 (k splits, d_samp = 1),
+#                  holding for j = 1..nsplits
+#                    data_split_<j>/heinz/selected_genes_split_<j>.heinz.txt
+#                    data_split_<j>/hotnet2/selected_genes_split_<j>.hotnet2.tsv  (two columns)
+#                    data_split_<j>/sigmod/selected_genes_split_<j>.sigmod.txt
+#                    data_split_<j>/dmgwas/selected_genes_split_<j>.dmgwas.txt
+#                    data_split_<j>/lean/selected_genes_split_<j>.lean.txt
+#                  (each with a 'gene' column).
+#   results        Step 4 output folder (--out of bionets.nf), with
+#                    <prefix>.scores.genes.out_converted_pruned_bhcorrection.tsv
+#                  MAGMA gene results after BH correction and pruning (deduplication): 12 columns, the
+#                  third one being 'Gene' (character).
+#   nsplits, nmethods  Number of data splits (must match --k) and of network methods (5).
+#
+# Outputs (<stable> = the 'stable_consensus' folder, i.e. results_44249 + '../')
+#   <stable>/stable_consensus_gset7.tsv               Genes of the stable consensus with
+#                                                     magmabh_cgwas, cgwas_genes and magmabh flags.
+#   <stable>/connections_stable_consensus_gset7.tsv   Layout (x, y, name, xend, yend).
+#   <stable>/figures/stable_consensus_methods_gset7.pdf   Figure (the 'figures' folder must exist).
+#
+# Notes
+#   - Only the threshold of 7 is applied (gene_set7), but the user can change that by increasing the number
+#     in gene_lists_subsets.
+#   - The per-source plots (heinz_plt, hotnet2_plt, ...) are built for individual inspection if needed.
+ 
+# Requirements: R packages igraph, tidygraph, magrittr, ggrepel, tidyverse, cowplot, network,
+#   sna, ggnetwork, scatterpie and ggnewscale. ggupset and RCy3 are loaded but not used here.
+#   To install tidyverse on Ubuntu you may first need:
+#     apt install libcurl4-openssl-dev libfontconfig1-dev libxml2-dev libharfbuzz-dev libfribidi-dev
+
+
 library(igraph)
 library(tidygraph)
 library(magrittr)
@@ -8,15 +65,6 @@ suppressMessages(library(network))
 suppressMessages(library(sna))
 library(ggnetwork)
 library(scatterpie)
-library(ggupset)
-library(RCy3)
-
-# To install tidyverse, you may need to install these libraries in Ubuntu:
-# apt install libcurl4-openssl-dev libfontconfig1-dev libxml2-dev libharfbuzz-dev libfribidi-dev
-# To install RCy3, you need BiocManager.
-# if (!require("BiocManager", quietly = TRUE))
-#   install.packages("BiocManager")
-# BiocManager::install("RCy3")
 
 theme_transparent <- theme(panel.background = element_rect(fill = "transparent"), # bg of the panel
                            plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
@@ -37,21 +85,13 @@ ppi <- read_tsv('data/biogrid_mv_physical_4.4.249_tab2_onlyhuman_9606_interactor
   graph_from_data_frame(directed = FALSE) %>%
   as_tbl_graph
 
-ppi_df <- as_tibble(ppi)
-
 methods <- c('Heinz','HotNet2', 'SigMod', 'cGWAS', 'MAGMABH', 'dmGWAS', 'LEAN', 'MAGMABHcGWAS')
-pathways <- c('IL17','IL23', 'TNF', 'IL1', 'IFNg', 'IFNmed', 'IL22', 'IL6', 'IL9', 'NFkB', 'JAK_STAT', 'MAPK', 'PI3K_AKT', 'WNT')
-gen_list <- c('Ran2019', 'Tsoi2017', 'Dand2025', 'Zhang2025')
 
 method_palette <- c('Heinz' = '#73471f',
                     'HotNet2' = '#377eb8', 'SigMod' = '#f4888a', 'All' = 'gray50',
                     'Consensus' = 'black', 'MAGMABH' = '#abdda4', 'cGWAS' = '#fdae61', 'dmGWAS' = '#80cdc1', 'LEAN' = '#4d9221')
 
 genesrc_palette <- c('MAGMABH' = '#abdda4', 'cGWAS' = '#fdae61', 'MAGMABH and cGWAS' = '#d3c783', 'Methods only' = '#ffffff')
-
-labs <- c('all_snps' = 'All', 'consensus' = 'Consensus',
-          'heinz' = 'heinz', 'hotnet2' = 'HotNet2', 'sigmod' = 'SigMod', 'magmabh' = 'MAGMABH', 'cgwas' = 'cGWAS', 'dmgwas' = 'dmGWAS', 'lean' = 'LEAN',
-          'magmabh_cgwas' = 'MAGMABHcGWAS')
 
 # TOPOLOGY PANEL
 
@@ -186,9 +226,6 @@ magmabh_cgwas_plt_square <- plot_network(ppi, magmabh_cgwas) + coord_fixed(ratio
 # Calculate the number of genes appearing in at least 1, 2, 3, ..., nmethods * nsplits lists
 max_occurrences <- nmethods * nsplits
 
-# Initialize an empty list to store the plots
-gene_plots <- vector("list", max_occurrences)
-
 # Loop through the process n times
 for (i in seq(1, max_occurrences)) {
   # Genes in at least i solutions
@@ -199,8 +236,6 @@ for (i in seq(1, max_occurrences)) {
 
 gene_set7 <- names(gene_lists_subsets[gene_lists_subsets >= 7])
 gene_set7_plt <- plot_network(ppi, gene_set7)
-
-### Consensus of gene sets ###
 
 # Gene set 7
 
@@ -253,6 +288,7 @@ consensus_gg <- function(gset, g_cgwas, g_magmabh, g_magmabh_cgwas,
   rename(gene = name) %>%
   write_tsv(paste0(results_44249,'../stable_consensus_gset7.tsv'))
   
+  set.seed(42)   # fixes the network layout for reproductibility
   gset %>%
   ggnetwork %>%
   mutate(name = as.character(name))
@@ -261,7 +297,7 @@ consensus_gg <- function(gset, g_cgwas, g_magmabh, g_magmabh_cgwas,
 consensus <- consensus_gg(gset7, g_cgwas, g_magmabh, g_magmabh_cgwas, 
                           cgwas_genes, magmabh, magmabh_cgwas)
 
-# output edge coordinates for each node in the consensus
+# output edge coordinates for each node in the stable consensus
 consensus %>% select(x, y, name, xend, yend) %>%
   write_tsv(paste0(results_44249,'../connections_stable_consensus_gset7.tsv'))
 

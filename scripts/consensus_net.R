@@ -1,3 +1,60 @@
+# =============================================================================
+# consensus_net.R  -  Consensus network of the genes selected by network methods
+# =============================================================================
+# Combines the modules returned by five network methods (Heinz, HotNet2, SigMod,
+# dmGWAS and LEAN; Step 4 of gwas-bionets, bionets.nf) into a consensus network
+# and draws it. Similarly, one can add more methods as needed to compare it in
+# the consensus network. Two more gene sources are shown for comparison and annotation:
+# genes annotated to the classical GWAS hits (cGWAS) and genes significant in
+# MAGMA after Benjamini-Hochberg correction (MAGMABH).
+# Author: Giann Karlo Aguirre-Samboní
+#
+# The general procedure of this script is as follows:
+#   1. Loads a reference protein-protein interaction (PPI) network (e.g. BioGRID).
+#   2. Reads the genes selected by each method (run labelled 'split_1', stored
+#      directly in the results folder) plus the cGWAS and MAGMABH gene lists.
+#   3. Builds the consensus: the genes selected by at least 3 of the 5 methods
+#      (num_methods >= 3) together with the PPI edges among them. cGWAS and
+#      MAGMABH are annotations and do not count towards the 3 methods.
+#   4. Writes the consensus gene table and the node layout, and saves a figure in
+#      which each node is a pie with one slice per method that selected the gene;
+#      the label fill shows whether the gene is also in MAGMABH and/or cGWAS.
+#
+# Inputs (edit the paths below; '<prefix>' is the basename used in the pipeline)
+#   PPI file       Tab-separated file whose first two columns are the official gene
+#                  symbols of each interaction ('Official Symbol Interactor A' and
+#                  'Official Symbol Interactor B', as in BioGRID tab2 files).
+#   results_gwas   Folder with '<prefix>.genes.annot_gene_ids_names.tsv': table with a
+#                  'Gene' column listing the genes annotated to the classical GWAS
+#                  hits.
+#   results_44249  Step 4 results folder (--out of bionets.nf; the name refers to the
+#                  PPI release used). It must contain, for each method,
+#                    heinz/selected_genes_split_1.heinz.txt
+#                    hotnet2/selected_genes_split_1.hotnet2.tsv  (two columns)
+#                    sigmod/selected_genes_split_1.sigmod.txt
+#                    dmgwas/selected_genes_split_1.dmgwas.txt
+#                    lean/selected_genes_split_1.lean.txt
+#                  (each with a 'gene' column) and
+#                    <prefix>.scores.genes.out_converted_pruned_bhcorrection.tsv
+#                  MAGMA gene results after BH correction and pruning (deduplication): 12 columns, the
+#                  third one being 'Gene' (character).
+#
+# Outputs (written to results_44249)
+#   consensus.tsv              Genes of the consensus with one TRUE/FALSE column per
+#                              source (heinz, hotnet2, sigmod, dmgwas, lean, magmabh_and_cgwas,
+#                              cgwas_genes, magmabh) and num_methods.
+#   connections_consensus.tsv  Layout coordinates of the nodes and edges (x, y, name, xend, yend).
+#   figures/consensus_pie_magmabh_methods_cgwas.pdf  Figure (the 'figures' folder must exist, o/w 
+#   modify the path).
+#
+# Notes
+#   - The per-source plots (heinz_plt, hotnet2_plt, ...) are built for individual inspection if needed.
+ 
+# Requirements: R packages igraph, tidygraph, magrittr, ggrepel, tidyverse, cowplot, network,
+#   sna, ggnetwork, scatterpie and ggnewscale.
+#   To install tidyverse on Ubuntu you may first need:
+#     apt install libcurl4-openssl-dev libfontconfig1-dev libxml2-dev libharfbuzz-dev libfribidi-dev
+
 library(igraph)
 library(tidygraph)
 library(magrittr)
@@ -8,17 +65,9 @@ suppressMessages(library(network))
 suppressMessages(library(sna))
 library(ggnetwork)
 library(scatterpie)
-library(ggupset)
-library(RCy3)
 library(ggnewscale)
 
-# To install tidyverse, you may need to install these libraries in Ubuntu:
-# apt install libcurl4-openssl-dev libfontconfig1-dev libxml2-dev libharfbuzz-dev libfribidi-dev
-# To install RCy3, you need BiocManager.
-# if (!require("BiocManager", quietly = TRUE))
-#   install.packages("BiocManager")
-# BiocManager::install("RCy3")
-
+# Transparent ggplot theme (no panel, plot or legend background, no grid lines), so the figures can be placed on any background.
 theme_transparent <- theme(panel.background = element_rect(fill = "transparent"), # bg of the panel
                            plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
                            panel.grid.major = element_blank(), # get rid of major grid
@@ -37,8 +86,6 @@ ppi <- read_tsv('data/biogrid_mv_physical_4.4.249_tab2_onlyhuman_9606_interactor
   select(`Official Symbol Interactor A`, `Official Symbol Interactor B`) %>%
   graph_from_data_frame(directed = FALSE) %>%
   as_tbl_graph
-
-ppi_df <- as_tibble(ppi)
 
 methods <- c('Heinz','HotNet2', 'SigMod', 'cGWAS', 'MAGMABH', 'dmGWAS', 'LEAN', 'MAGMABHcGWAS')
 
@@ -111,8 +158,6 @@ magmabh_and_cgwas <- intersect(magmabh, cgwas_genes)
 magmabh_and_cgwas_plt <- plot_network(ppi, magmabh_and_cgwas)
 magmabh_and_cgwas_plt_square <- plot_network(ppi, magmabh_and_cgwas) + coord_fixed(ratio = 1)
 
-### Consensus ###
-
 # Heinz
 
 g_heinz <- activate(ppi, nodes) %>%
@@ -177,6 +222,8 @@ g_magmabh_and_cgwas <- activate(ppi, nodes) %>%
 class(g_magmabh_and_cgwas) <- c('igraph','tbl_graph')
 
 # Consensus
+# join all sources, set missing flags to FALSE, count how many of the five network methods
+# selected each gene (num_methods) and keep genes selected by at least 3 of them.
 
 options(repr.plot.width=25, repr.plot.height=15)
 consensus <- graph_join(g_heinz, g_hotnet2, by = c('name')) %>%
@@ -203,6 +250,7 @@ as_tibble(consensus) %>%
   rename(gene = name) %>%
   write_tsv(paste0(results_44249,'consensus.tsv'))
 
+set.seed(42)   # fixes the network layout for reproductibility
 consensus_gg <- consensus %>%
   ggnetwork %>%
   mutate(name = as.character(name))
@@ -211,6 +259,7 @@ consensus_gg <- consensus %>%
 consensus_gg %>% select(x, y, name, xend, yend) %>%
   write_tsv(paste0(results_44249,'connections_consensus.tsv'))
 
+# Label group (fill of the gene labels): MAGMABH and cGWAS > MAGMABH > cGWAS > methods only.
 nodes <- mutate(consensus_gg, Heinz = as.numeric(heinz),
                 HotNet2 = as.numeric(hotnet2),
                 SigMod = as.numeric(sigmod),
