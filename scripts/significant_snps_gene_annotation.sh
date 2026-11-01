@@ -4,7 +4,7 @@
 # Psoriasis MAGMA workflow
 #
 # This script:
-#   1. Keeps SNP associations with 0 < P <= 5e-8 and sorts them by P-value.
+#   1. Keeps SNP associations with 0 < P <= 5e-8 and sorts them by p-value.
 #   2. Converts the significant PLINK association file to MAGMA SNP-location
 #      input format (SNP, CHR, BP, P).
 #   3. Runs MAGMA gene annotation using a 50 kb window.
@@ -28,19 +28,19 @@ trap 'echo "ERROR: command failed on line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
 # Configuration
 # -----------------------------------------------------------------------------
 
-INPUT_DIR="results/psoriasis/magma_scores/magma_output_50kb_window_snp-array"
-INPUT_ASSOC="${INPUT_DIR}/snp_association_plink.assoc"
+INPUT_DIR="results/psoriasis/magma/magma_output_50kb_window_snp-array/"
+INPUT_ASSOC="${INPUT_DIR}/ukb22418_all_chr_b0_v2_filtered_qc-ed_no_mhc_snp_association_plink.assoc"
 
 # The output directory is the input directory name with this suffix appended.
-OUTPUT_DIR="${INPUT_DIR}_significant_snps"
+OUTPUT_DIR="."
 
 # MAGMA gene-coordinate file (GRCh38 / NCBI38).
-MAGMA_GENE_LOC="${MAGMA_GENE_LOC:-magma/genome_data/NCBI38/NCBI38.gene.loc}"
+MAGMA_GENE_LOC="${MAGMA_GENE_LOC:-magma/genome_data/NCBI37.3/NCBI37.3.gene.loc}"
 
 # MAGMA annotation window
 WINDOW=50
 
-# P-value threshold
+# p-value threshold
 PVALUE=5e-8
 
 # Output files
@@ -56,7 +56,7 @@ GENE_NAMES_FILE="${OUTPUT_DIR}/pso.genes.annot_only_gene_names.tsv"
 # Checks
 # -----------------------------------------------------------------------------
 
-for command in awk sort cut Rscript magma; do
+for command in awk sort cut Rscript ../../ukb_gwas_tools/scripts/additional_tools/magma/magma; do
     if ! command -v "$command" >/dev/null 2>&1; then
         echo "ERROR: required command not found: $command" >&2
         exit 1
@@ -78,8 +78,8 @@ mkdir -p "$OUTPUT_DIR"
 # -----------------------------------------------------------------------------
 # 1. Filter significant SNP associations
 # -----------------------------------------------------------------------------
-# Keep the original header, retain rows with 0 < P <= 5e-8 (P is column 9),
-# and sort the retained rows by ascending P-value. You can modify the threshold
+# Keep the original header, retain rows with 0 < P <= PVALUE (P is column 9),
+# and sort the retained rows by ascending p-value. You can modify the threshold
 # in the code below.
 
 echo "[1/6] Filtering significant SNP associations..."
@@ -130,7 +130,7 @@ RSCRIPT
 # -----------------------------------------------------------------------------
 # 3. Run MAGMA gene annotation
 # -----------------------------------------------------------------------------
-# Annotate SNPs to genes using a 50 kb window around each gene.
+# Annotate SNPs to genes using a WINDOW kb window around each gene.
 
 echo "[3/6] Running MAGMA gene annotation..."
 magma \
