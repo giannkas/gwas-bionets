@@ -256,3 +256,212 @@ consensus_pie_methods <- ggplot() +
 
 consensus_pie_methods
 ```
+
+
+```{r, fig.width = 14, fig.height = 10, fig.cap="Consensus network comprising 128 genes built by choosing those genes selected in at least 3 methods out of 5. This network highlights genes in common with known gene lists from Ran et al. (2019, Tsoi et al. (2017), Dand et al. (2025) and Zhang et al. (2025)."}
+ran_psoriasis_genes <- read_tsv('data/gene_lists/ran_psoriasis_genes.tsv',
+                                col_types = 'cc') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+tsoi_psoriasis_genes <- read_csv('data/gene_lists/tsoi_psoriasis_genes.csv',
+                                 col_types = 'cc') %>%
+  select(`Closest Gene`)%>%
+  mutate(`Closest Gene` = toupper(`Closest Gene`))
+
+dand_psoriasis_genes <- read_csv('data/gene_lists/dand_psoriasis_closest_protein_genes.tsv',
+                                 col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+zhang_psoriasis_genes <- read_csv('data/gene_lists/zhang_psoriasis_genes.tsv',
+                                  col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+gen_list <- c('Ran2019', 'Tsoi2017', 'Dand2025', 'Zhang2025')
+gen_list_palette <- c('Ran2019' = '#bebada', 'Tsoi2017' = '#80b1d3', 'Dand2025' = '#b3de69', 'Zhang2025' = '#fccde5')
+
+nodes <- mutate(consensus_gg, Ran2019 = as.numeric(name %in% ran_psoriasis_genes$gene),
+                Tsoi2017 =  as.numeric(name %in% tsoi_psoriasis_genes$`Closest Gene`),
+                Dand2025 =  as.numeric(name %in% dand_psoriasis_genes$gene),
+                Zhang2025 =  as.numeric(name %in% zhang_psoriasis_genes$gene)
+                ) %>%
+  filter(xend == x & yend == y) %>% 
+  select(x, y, name, all_of(gen_list)
+         ) %>%
+  unique
+
+edges <- filter(consensus_gg, xend != x | yend != y)
+
+common_ran_psoriasis_genes <- nodes$name %in% ran_psoriasis_genes$gene
+common_tsoi_psoriasis_genes <- nodes$name %in% tsoi_psoriasis_genes$`Closest Gene`
+common_dand_psoriasis_genes <- nodes$name %in% dand_psoriasis_genes$gene
+common_zhang_psoriasis_genes <- nodes$name %in% zhang_psoriasis_genes$gene
+common_all_gen_lists <- common_ran_psoriasis_genes | common_tsoi_psoriasis_genes | common_dand_psoriasis_genes | common_zhang_psoriasis_genes
+
+consensus_pie_gene_lists <- ggplot() +
+  geom_edges(data = edges, aes(x = x, y = y, xend = xend, yend = yend), 
+             color = '#393e46', linewidth = 1) +
+  geom_point(data = filter(nodes, !common_all_gen_lists), 
+             aes(x = x, y = y), 
+             size = 1, color = '#393e46') +
+  geom_scatterpie(data = nodes, aes(x = x, y = y, r=0.011), cols = gen_list) +
+  geom_label_repel(data = filter(nodes, common_all_gen_lists), 
+                   aes(x = x, y = y, label = name), 
+                   size = 6, point.padding = 1, max.time = 5, max.iter = 20000, 
+                   max.overlaps = 30) +
+  coord_fixed() +
+  theme_blank() +
+  labs(fill = 'Gen list') +
+  scale_fill_manual(values = gen_list_palette) +
+  guides(color = "none") +
+  theme(legend.position = 'left',
+        legend.text = element_text(size = 20, vjust = .2),
+        legend.title = element_text(size = 22, vjust = 1)) +
+  theme_transparent
+
+consensus_pie_gene_lists
+
+```
+
+```{r, fig.width = 14, fig.height = 10, fig.cap="Consensus network comprising 128 genes built by choosing those genes selected in at least 3 methods out of 5. This network highlights genes in common with L-17, IL-23, TNF, IL-1, IFN-γ, IFN -mediated, IL-22, IL-6, NF-κB, JAK-STAT, MAPK, PI3K-AKT and WNT pathways."}
+il17_signaling_pathway <- read_tsv('data/pathways/il17_signaling_pathway.tsv',
+                                   col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+il23_signaling_pathway <- read_tsv('data/pathways/il23_signaling_pathway.tsv',
+                                   col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+tnf_signaling_pathway <- read_tsv('data/pathways/tnf_signaling_pathway.tsv',
+                                  col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+il1_signaling_pathway <- read_tsv('data/pathways/il1_signaling_pathway.tsv',
+                                  col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+ifn_gamma_signaling_pathway <- read_tsv('data/pathways/ifn-gamma_signaling_pathway.tsv',
+                                        col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+interferons_mediated_signaling_pathway <- read_tsv('data/pathways/interferons-mediated_signaling_pathway.tsv',
+                                                   col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+il22_signaling_pathway <- read_tsv('data/pathways/il22_signaling_pathway.tsv',
+                                   col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+il6_signaling_pathway <- read_tsv('data/pathways/il6_signaling_pathway.tsv',
+                                  col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+il9_signaling_pathway <- read_tsv('data/pathways/il9_signaling_pathway.tsv',
+                                  col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+nfkb_signaling_pathway <- read_tsv('data/pathways/nfkb_signaling_pathway.tsv',
+                                   col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+jak_stat_signaling_pathway <- read_tsv('data/pathways/jak-stat_signaling_pathway.tsv',
+                                       col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+mapk_signaling_pathway <- read_tsv('data/pathways/mapk_signaling_pathway.tsv',
+                                   col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+pi3k_akt_signaling_pathway <- read_tsv('data/pathways/pi3k-akt_signaling_pathway.tsv',
+                                       col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+wnt_signaling_pathway <- read_tsv('data/pathways/wnt_signaling_pathway.tsv',
+                                  col_types = 'c') %>%
+  select(gene) %>%
+  mutate(gene = toupper(gene))
+
+pathways <- c('IL17','IL23', 'TNF', 'IL1', 'IFNg', 'IFNmed', 'IL22', 'IL6', 'IL9', 'NFkB', 'JAK_STAT', 'MAPK', 'PI3K_AKT', 'WNT')
+
+pathways_palette <- c('IL17' = '#969696', 'IL23' = '#e7298a', 'TNF' = '#377eb8', 'IL1' = '#b2df8a', 'IFNg' = '#a6cee3', 'IFNmed' = '#33a02c', 'IL22' = '#fb9a99', 'IL6' = '#e31a1c', 'IL9' = '#fdbf6f', 'NFkB' = '#ff7f00', 'JAK_STAT' = '#cab2d6', 'MAPK' = '#6a3d9a', 'PI3K_AKT' = '#ffff99', 'WNT' = '#b15928')
+
+nodes <- mutate(consensus_gg, IL17 = as.numeric(name %in% il17_signaling_pathway$gene),
+                IL23 = as.numeric(name %in% il23_signaling_pathway$gene),
+                TNF =  as.numeric(name %in% tnf_signaling_pathway$gene),
+                IL1 =  as.numeric(name %in% il1_signaling_pathway$gene),
+                IFNg =  as.numeric(name %in% ifn_gamma_signaling_pathway$gene),
+                IFNmed =  as.numeric(name %in% interferons_mediated_signaling_pathway$gene),
+                IL22 =  as.numeric(name %in% il22_signaling_pathway$gene),
+                IL6 =  as.numeric(name %in% il6_signaling_pathway$gene),
+                IL9 =  as.numeric(name %in% il9_signaling_pathway$gene),
+                NFkB =  as.numeric(name %in% nfkb_signaling_pathway$gene),
+                JAK_STAT =  as.numeric(name %in% jak_stat_signaling_pathway$gene),
+                MAPK =  as.numeric(name %in% mapk_signaling_pathway$gene),
+                PI3K_AKT =  as.numeric(name %in% pi3k_akt_signaling_pathway$gene),
+                WNT =  as.numeric(name %in% wnt_signaling_pathway$gene)
+                ) %>%
+  filter(xend == x & yend == y) %>% 
+  select(x, y, name, all_of(pathways)
+         ) %>%
+  unique
+
+edges <- filter(consensus_gg, xend != x | yend != y)
+
+common_il17_pathway <- nodes$name %in% il17_signaling_pathway$gene
+common_il23_pathway <- nodes$name %in% il23_signaling_pathway$gene
+common_tnf_pathway <- nodes$name %in% tnf_signaling_pathway$gene
+common_il1_pathway <- nodes$name %in% il1_signaling_pathway$gene
+common_ifn_gamma_pathway <- nodes$name %in% ifn_gamma_signaling_pathway$gene
+common_ifnmed_pathway <- nodes$name %in% interferons_mediated_signaling_pathway$gene
+common_il22_pathway <- nodes$name %in% il22_signaling_pathway$gene
+common_il6_pathway <- nodes$name %in% il6_signaling_pathway$gene
+common_il9_pathway <- nodes$name %in% il9_signaling_pathway$gene
+common_nfkb_pathway <- nodes$name %in% nfkb_signaling_pathway$gene
+common_jak_stat_pathway <- nodes$name %in% jak_stat_signaling_pathway$gene
+common_mapk_pathway <- nodes$name %in% mapk_signaling_pathway$gene
+common_pi3k_akt_pathway <- nodes$name %in% pi3k_akt_signaling_pathway$gene
+common_wnt_pathway <- nodes$name %in% wnt_signaling_pathway$gene
+common_all_pathways <- (common_il17_pathway | common_il23_pathway | common_tnf_pathway | 
+                        common_il1_pathway | common_ifn_gamma_pathway | common_ifnmed_pathway |
+                        common_il22_pathway | common_il6_pathway | common_il9_pathway | 
+                        common_nfkb_pathway | common_jak_stat_pathway | common_mapk_pathway |
+                        common_pi3k_akt_pathway | common_wnt_pathway)
+
+consensus_pie_pathways <- ggplot() +
+  geom_edges(data = edges, aes(x = x, y = y, xend = xend, yend = yend), 
+             color = '#393e46', linewidth = 1) +
+  geom_point(data = filter(nodes, !common_all_pathways), 
+             aes(x = x, y = y), 
+             size = 1, color = '#393e46') +
+  geom_scatterpie(data = nodes, aes(x = x, y = y, r=0.011), cols = pathways) +
+  geom_label_repel(data = filter(nodes, common_all_pathways), 
+                   aes(x = x, y = y, label = name), 
+                   size = 6, point.padding = 1, max.time = 5, max.iter = 20000, 
+                   max.overlaps = 50) +
+  coord_fixed() +
+  theme_blank() +
+  labs(fill = 'Signaling pathways') +
+  scale_fill_manual(values = pathways_palette) +
+  guides(color = "none") +
+  theme(legend.position = 'left',
+        legend.text = element_text(size = 20, vjust = .2),
+        legend.title = element_text(size = 22, vjust = 1)) +
+  theme_transparent
+
+consensus_pie_pathways
+```
