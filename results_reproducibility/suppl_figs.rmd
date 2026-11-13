@@ -290,6 +290,48 @@ consensus_pie_gene_lists
 
 ```
 
+```{r, fig.width = 30, fig.height = 30, fig.cap="Declining bar chart to show the selection of genes across multiple gene sets for the construction of a stable consensus network. The highest bar (at 1 set) contains 1 969 genes, meaning nearly 2 000 genes appear in at least one gene set. This number drops to 1 094 genes appearing in at least 2 gene sets, and continues declining steeply through subsequent thresholds."}
+occurrence_counts <- sapply(1:max_occurrences, function(x) sum(gene_lists_subsets >= x))
+
+# Create a data frame for plotting
+occurrence_df <- data.frame(Occurrences = 1:max_occurrences, Frequency = occurrence_counts)
+
+# Plot the data
+ggplot(occurrence_df, aes(x = Occurrences, y = Frequency)) +
+  geom_bar(stat = "identity", fill = "#016784") +
+  geom_text(aes(label = Frequency), vjust = -0.5, size = 6) +
+  geom_line(stat = "identity") +
+  labs(
+    title = "Number of genes appearing in at least n solutions",
+    x = "Solutions",
+    y = "Number of genes") +
+  theme_minimal(base_size = 20)
+```
+
+```{r, fig.width = 30, fig.height = 30, fig.cap="Sensitivity analysis of different thresholds applied for the construction of the stable consensus network. After the running the workflow for constructing the stable consensus, the pipeline produces 25 gene lists corresponding to the subsampling approach (five folds times five methods). Set1 means all the genes selected in at least one gene list, Set2 means all the genes selected in at least two gene lists, Set3 means all the genes selected in at least three gene lists, etc. Set25 means all the genes selected in all gene lists, which in this case is empty together with Set22, Set23 and Set24."}
+
+# Initialize an empty list to store the plots
+gene_plots <- vector("list", max_occurrences)
+
+# Loop through the process n times
+for (i in seq(1, max_occurrences)) {
+  # Genes in at least i solutions
+  gene_set <- names(gene_lists_subsets[gene_lists_subsets >= i])
+  gene_plots[[i]] <- plot_network(ppi, gene_set)
+}
+
+# Create the topology panel
+topology_panel <- plot_grid(plotlist = gene_plots, 
+                            labels = paste0("Set", 1:max_occurrences),
+                            label_size = 28)
+
+# Create the plot
+sensitivity_plot <- plot_grid(topology_panel, 
+                align = "v",        # Aligns vertically
+                axis = "tblr")         # Aligns the top and bottom axes
+sensitivity_plot
+```
+
 ```{r, fig.width = 14, fig.height = 10, fig.cap="Stable consensus network comprising 258 genes built by choosing those genes selected in at least 7 out of 25 solutions. This network highlights genes in common with L-17, IL-23, TNF, IL-1, IFN-γ, IFN -mediated, IL-22, IL-6, NF-κB, JAK-STAT, MAPK, PI3K-AKT and WNT pathways."}
 il17_signaling_pathway <- read_tsv('data/pathways/il17_signaling_pathway.tsv',
                                    col_types = 'c') %>%
@@ -763,14 +805,14 @@ library(patchwork)
 
 # Folder of each network and the path to its PPI file
 networks <- list(
-  HINT   = list(dir = 'data/hint/',
-                ppi_file = 'data/hint/hint_homo_sapiens_lcb_hq_hgnc.tsv'),
-  IID    = list(dir = 'data/iid/',
-                ppi_file = 'data/iid/human_annotated_integrated_interactions_database_skin_not_sun_exposed_exp.tsv'),
-  IntAct = list(dir = 'data/intact/',
-                ppi_file = 'data/intact/intact_human_association_physical_direct_interaction_types_2026-04-14-10-00_hgnc.tsv'),
-  STRING = list(dir = 'data/string/',
-                ppi_file = 'data/string/9606.protein.links.v12.0.min900.onlyAB_hgnc.tsv')
+  HINT   = list(dir = 'data/other_networks/hint/',
+                ppi_file = 'data/other_networks/hint/hint_homo_sapiens_lcb_hq_hgnc.tsv'),
+  IID    = list(dir = 'data/other_networks/iid/',
+                ppi_file = 'data/other_networks/iid/human_annotated_integrated_interactions_database_skin_not_sun_exposed_exp.tsv'),
+  IntAct = list(dir = 'data/other_networks/intact/',
+                ppi_file = 'data/other_networks/intact/intact_human_association_physical_direct_interaction_types_2026-04-14-10-00_hgnc.tsv'),
+  STRING = list(dir = 'data/other_networks/string/',
+                ppi_file = 'data/other_networks/string/9606.protein.links.v12.0.min900.onlyAB_hgnc.tsv')
 )
 
 # Read a PPI file with two gene columns and return a tbl_graph
@@ -886,6 +928,149 @@ build_consensus_plot <- function(net_name, net, n = 3) {
 consensus_plots <- map2(names(networks), networks, build_consensus_plot)
 
 # Combine into a 2 x 2 figure labelled (a) to (d)
+wrap_plots(consensus_plots, ncol = 2) +
+  plot_layout(guides = 'collect') +
+  plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')') &
+  theme(legend.position = 'bottom')
+```
+
+```{r, fig.width = 20, fig.height = 15, fig.cap="Comparison between two different datasets. Subfigure (a) illustrates the dataset used in this study, but excluding the MHC region, and integrating covariates, subfigure (b) shows the consensus network obtained by applying the pipeline to the psoriasis summary statistics from Finngen."}
+
+library(patchwork)
+
+# Folder of each network and the path to its PPI file
+datasets <- list(
+  no_mhc_covars = list(
+    dir        = 'data/no_mhc_covars/',
+    ppi_file   = 'data/biogrid_mv_physical_4.4.249_tab2_onlyhuman_9606_interactorsAB.tsv',
+    cgwas_file = 'data/pso.genes.annot_gene_ids_names.tsv',
+    magma_file = 'data/no_mhc_covars/pso.scores.genes.out_converted_pruned_bhcorrection.tsv'
+  ),
+  finngen = list(
+    dir        = 'data/finngen/',
+    ppi_file   = 'data/biogrid_mv_physical_4.4.249_tab2_onlyhuman_9606_interactorsAB.tsv',
+    cgwas_file = 'data/finngen/finngen_R12_L12_PSORIASIS_autosomes_only_snps_no_mhc.genes.annot_gene_ids_names.tsv',
+    magma_file = 'data/finngen/finngen_R12_L12_PSORIASIS_autosomes_only_snps_no_mhc.scores.genes.out_converted_bhcorrection.tsv'
+  )
+)
+
+# Read a PPI file with two gene columns and return a tbl_graph
+read_ppi <- function(path) {
+  read_tsv(path, col_types = cols(.default = 'c')) %>%
+    select(`Official Symbol Interactor A`, `Official Symbol Interactor B`) %>%
+    graph_from_data_frame(directed = FALSE) %>%
+    as_tbl_graph
+}
+
+build_consensus_plot <- function(data_name, dataset, n = 3) {
+
+  ppi <- read_ppi(dataset$ppi_file)
+  d <- dataset$dir
+
+  # Method outputs for this network
+  cgwas_genes <- read_tsv(dataset$cgwas_file, col_types = 'c')$Gene %>% unique()
+  magmabh     <- read_tsv(dataset$magma_file, col_types = 'iiciiiiiidnn')$Gene %>% unique()
+  magmabh_and_cgwas <- intersect(magmabh, cgwas_genes)
+  
+  heinz   <- read_tsv(file.path(d, 'heinz/selected_genes_split_1.heinz.txt'), col_types = 'c')$gene
+  hotnet2 <- read_tsv(file.path(d, 'hotnet2/selected_genes_split_1.hotnet2.tsv'), col_types = 'cc')$gene
+  sigmod  <- read_tsv(file.path(d, 'sigmod/selected_genes_split_1.sigmod.txt'), col_types = 'c')$gene
+  dmgwas  <- read_tsv(file.path(d, 'dmgwas/selected_genes_split_1.dmgwas.txt'), col_types = 'c')$gene
+  lean    <- read_tsv(file.path(d, 'lean/selected_genes_split_1.lean.txt'), col_types = 'c')$gene
+
+  # Helper to create one subgraph per gene set
+  make_sub <- function(genes, label) {
+    g <- activate(ppi, nodes) %>%
+      filter(name %in% genes) %>%
+      mutate(!!label := TRUE)
+    class(g) <- c('igraph', 'tbl_graph')
+    g
+  }
+
+  g_cgwas             <- make_sub(cgwas_genes, 'cgwas_genes')
+  g_magmabh           <- make_sub(magmabh, 'magmabh')
+  g_magmabh_and_cgwas <- make_sub(magmabh_and_cgwas, 'magmabh_and_cgwas')
+  g_heinz             <- make_sub(heinz, 'heinz')
+  g_hotnet2           <- make_sub(hotnet2, 'hotnet2')
+  g_sigmod            <- make_sub(sigmod, 'sigmod')
+  g_dmgwas            <- make_sub(dmgwas, 'dmgwas')
+  g_lean              <- make_sub(lean, 'lean')
+
+  consensus <- graph_join(g_heinz, g_hotnet2, by = 'name') %>%
+    graph_join(g_sigmod, by = 'name') %>%
+    graph_join(g_dmgwas, by = 'name') %>%
+    graph_join(g_lean, by = 'name') %>%
+    graph_join(g_magmabh_and_cgwas, by = 'name') %>%
+    graph_join(g_cgwas, by = 'name') %>%
+    graph_join(g_magmabh, by = 'name') %>%
+    to_undirected %>%
+    mutate(heinz = ifelse(is.na(heinz), FALSE, heinz),
+           hotnet2 = ifelse(is.na(hotnet2), FALSE, hotnet2),
+           sigmod = ifelse(is.na(sigmod), FALSE, sigmod),
+           dmgwas = ifelse(is.na(dmgwas), FALSE, dmgwas),
+           lean = ifelse(is.na(lean), FALSE, lean),
+           magmabh_and_cgwas = ifelse(is.na(magmabh_and_cgwas), FALSE, magmabh_and_cgwas),
+           cgwas_genes = ifelse(is.na(cgwas_genes), FALSE, cgwas_genes),
+           magmabh = ifelse(is.na(magmabh), FALSE, magmabh),
+           num_methods = rowSums(cbind(heinz, hotnet2, sigmod, dmgwas, lean))) %>%
+    filter(num_methods >= n)
+
+  set.seed(42)
+  consensus_gg <- consensus %>%
+    ggnetwork %>%
+    mutate(name = as.character(name))
+
+  nodes <- mutate(consensus_gg,
+                  Heinz = as.numeric(heinz),
+                  HotNet2 = as.numeric(hotnet2),
+                  SigMod = as.numeric(sigmod),
+                  dmGWAS = as.numeric(dmgwas),
+                  LEAN = as.numeric(lean),
+                  cGWAS = as.numeric(cgwas_genes),
+                  MAGMABH = as.numeric(magmabh),
+                  MAGMABHcGWAS = as.numeric(magmabh_and_cgwas)) %>%
+    filter(xend == x & yend == y) %>%
+    select(x, y, name, all_of(methods)) %>%
+    unique
+
+  nodes <- nodes %>%
+    mutate(label_group = case_when(
+      MAGMABHcGWAS == 1 ~ 'MAGMABH and cGWAS',
+      MAGMABH == 1 ~ 'MAGMABH',
+      cGWAS == 1 ~ 'cGWAS',
+      TRUE ~ 'Methods only'))
+
+  edges <- filter(consensus_gg, xend != x | yend != y)
+
+
+  # stop("DEBUG: nodes columns are: ", paste(names(nodes), collapse = ", "))
+  
+  ggplot() +
+    geom_edges(data = edges, aes(x = x, y = y, xend = xend, yend = yend),
+               color = '#393e46', linewidth = 1) +    
+    geom_scatterpie(data = nodes, aes(x = x, y = y, r = 0.007),
+                    cols = setdiff(methods, c('MAGMABH', 'cGWAS', 'MAGMABHcGWAS'))) +
+    scale_fill_manual(name = "Methods", values = method_palette, drop = FALSE) +
+    ggnewscale::new_scale_fill() +
+    geom_label_repel(data = nodes,
+                     aes(x = x, y = y, label = name, fill = label_group),
+                     size = 3, point.padding = 1, max.time = 5, max.iter = 20000,
+                     max.overlaps = 100) +
+    scale_fill_manual(name = "Gene source", values = genesrc_palette, drop = FALSE) +
+    coord_fixed() +
+    theme_blank() +
+    guides(color = "none", fill = guide_legend(override.aes = aes(label = "  "))) +
+    theme(legend.position = 'left',
+          legend.text = element_text(size = 20, vjust = .2),
+          legend.title = element_text(size = 22, vjust = 1)) +
+    theme_transparent +
+    ggtitle(data_name)
+}
+
+# One plot per network
+consensus_plots <- map2(names(datasets), datasets, build_consensus_plot)
+
+# Combine into a figure labelled (a) to (b)
 wrap_plots(consensus_plots, ncol = 2) +
   plot_layout(guides = 'collect') +
   plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')') &
