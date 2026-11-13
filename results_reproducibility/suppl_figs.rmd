@@ -222,6 +222,27 @@ gset7 <- activate(ppi, nodes) %>%
   mutate(gset7 = TRUE)
 class(gset7) <- c('igraph','tbl_graph')
 
+# cGWAS
+
+g_cgwas <- activate(ppi, nodes) %>%
+  filter(name %in% cgwas_genes) %>%
+  mutate(cgwas_genes = TRUE)
+class(g_cgwas) <- c('igraph','tbl_graph')
+
+# MAGMA_BH
+
+g_magmabh <- activate(ppi, nodes) %>%
+  filter(name %in% magmabh) %>%
+  mutate(magmabh = TRUE)
+class(g_magmabh) <- c('igraph','tbl_graph')
+
+# MAGMA_BH and cGWAS
+
+g_magmabh_and_cgwas <- activate(ppi, nodes) %>%
+  filter(name %in% magmabh_and_cgwas) %>%
+  mutate(magmabh_and_cgwas = TRUE)
+class(g_magmabh_and_cgwas) <- c('igraph','tbl_graph')
+
 gset7 <- gset7 %>%
   ggnetwork %>%
   mutate(name = as.character(name))
@@ -408,4 +429,465 @@ consensus_pie_pathways <- ggplot() +
   theme_transparent
 
 consensus_pie_pathways
+```
+
+```{r, fig.width = 14, fig.height = 10, fig.cap="Stable consensus network built by choosing those genes selected in at least 7 out of 25 solutions. There are 258 genes in the network."}
+
+gene_set7 <- names(gene_lists_subsets[gene_lists_subsets >= 7])
+gene_set7_plt <- plot_network(ppi, gene_set7)
+
+# Gene set 7
+
+gset7 <- activate(ppi, nodes) %>%
+  filter(name %in% gene_set7) %>%
+  mutate(gset7 = TRUE)
+class(gset7) <- c('igraph','tbl_graph')
+
+consensus_gg <- function(gset, g_cgwas, g_magmabh, g_magmabh_and_cgwas, 
+                         cgwas_genes, magmabh, magmabh_and_cgwas) {
+  
+  # gset <- gset %>% to_undirected
+  
+  gset <- gset %>% graph_join(g_magmabh_and_cgwas, by = c('name')) %>% 
+    graph_join(g_cgwas, by = c('name')) %>%
+    graph_join(g_magmabh, by = c('name')) %>%
+    to_undirected %>%
+    mutate(magmabh_and_cgwas = ifelse(is.na(magmabh_and_cgwas), FALSE, magmabh_and_cgwas),
+           cgwas_genes = ifelse(is.na(cgwas_genes), FALSE, cgwas_genes),
+           magmabh = ifelse(is.na(magmabh), FALSE, magmabh)) %>%
+    filter(name %in% V(gset)$name)
+  
+  set.seed(42)   # fixes the network layout for reproductibility
+  gset %>%
+  ggnetwork %>%
+  mutate(name = as.character(name))
+}
+
+consensus <- consensus_gg(gset7, g_cgwas, g_magmabh, g_magmabh_and_cgwas,
+                          cgwas_genes, magmabh, magmabh_and_cgwas)
+
+nodes <- mutate(consensus,
+                Heinz = as.numeric(name %in% heinz_genes),
+                HotNet2 = as.numeric(name %in% hotnet2_genes),
+                SigMod = as.numeric(name %in% sigmod_genes),
+                dmGWAS = as.numeric(name %in% dmgwas_genes),
+                LEAN = as.numeric(name %in% lean_genes),
+                cGWAS = as.numeric(cgwas_genes),
+                MAGMABH = as.numeric(magmabh),
+                MAGMABHcGWAS = as.numeric(magmabh_and_cgwas)
+                ) %>%
+  filter(xend == x & yend == y) %>%
+  select(x, y, name, all_of(methods)) %>%
+  unique
+
+nodes <- nodes %>%
+  mutate(label_group = case_when(
+    MAGMABHcGWAS == 1 ~ 'MAGMABH and cGWAS',
+    MAGMABH == 1 ~ 'MAGMABH',
+    cGWAS == 1 ~ 'cGWAS',
+    TRUE ~ 'Methods only')
+  )
+
+edges <- filter(consensus, xend != x | yend != y)
+
+consensus_pie_methods <- ggplot() +
+  geom_edges(data = edges, aes(x = x, y = y, xend = xend, yend = yend),
+             color = '#393e46', linewidth = 1) +
+  geom_scatterpie(data = nodes, aes(x = x, y = y, r=0.007), cols = setdiff(methods, c('MAGMABH', 'cGWAS', 'MAGMABHcGWAS'))) +
+  scale_fill_manual(name = "Methods", values = method_palette) +
+  ggnewscale::new_scale_fill() +
+  geom_label_repel(data = nodes,
+                   aes(x = x, y = y, label = name, fill = label_group),
+                   size = 3, point.padding = 1, max.time = 5, max.iter = 20000,
+                   max.overlaps = 100) +
+  scale_fill_manual(name = "Gene source", values = genesrc_palette) +
+  coord_fixed() +
+  theme_blank() +
+  guides(color = "none", fill = guide_legend(
+    override.aes = aes(label = "  ")
+  )) +
+  theme(legend.position = 'left',
+        legend.text = element_text(size = 20, vjust = .2),
+        legend.title = element_text(size = 22, vjust = 1)) +
+  theme_transparent
+
+consensus_pie_methods
+```
+
+```{r, fig.width = 14, fig.height = 10, fig.cap="Non-network prioritisation method. We corrected for multiple tests using the Benjamini-Hochberg approach to the genes outputted by MAGMA gene-analysis step."}
+
+# Heinz
+
+g_heinz <- activate(ppi, nodes) %>%
+  filter(name %in% heinz) %>%
+  mutate(heinz = TRUE)
+class(g_heinz) <- c('igraph','tbl_graph')
+
+# HotNet2
+
+g_hotnet2 <- activate(ppi, nodes) %>%
+  filter(name %in% hotnet2) %>%
+  mutate(hotnet2 = TRUE)
+class(g_hotnet2) <- c('igraph','tbl_graph')
+
+# SigMod
+
+g_sigmod <- activate(ppi, nodes) %>%
+  filter(name %in% sigmod) %>%
+  mutate(sigmod = TRUE)
+class(g_sigmod) <- c('igraph','tbl_graph')
+
+# dmGWAS
+
+g_dmgwas <- activate(ppi, nodes) %>%
+  filter(name %in% dmgwas) %>%
+  mutate(dmgwas = TRUE)
+class(g_dmgwas) <- c('igraph','tbl_graph')
+
+# LEAN
+
+g_lean <- activate(ppi, nodes) %>%
+  filter(name %in% lean) %>%
+  mutate(lean = TRUE)
+class(g_lean) <- c('igraph','tbl_graph')
+
+consensus <- graph_join(g_heinz, g_hotnet2, by = c('name')) %>%
+  graph_join(g_sigmod, by = c('name')) %>%
+  graph_join(g_dmgwas, by = c('name')) %>%
+  graph_join(g_lean, by = c('name')) %>%
+  graph_join(g_magmabh_and_cgwas, by = c('name')) %>%
+  graph_join(g_cgwas, by = c('name')) %>%
+  graph_join(g_magmabh, by = c('name')) %>%
+  to_undirected %>%
+  mutate(heinz = ifelse(is.na(heinz), FALSE, heinz),
+         hotnet2 = ifelse(is.na(hotnet2), FALSE, hotnet2),
+         sigmod = ifelse(is.na(sigmod), FALSE, sigmod),
+         dmgwas = ifelse(is.na(dmgwas), FALSE, dmgwas),
+         lean = ifelse(is.na(lean), FALSE, lean),
+         magmabh_and_cgwas = ifelse(is.na(magmabh_and_cgwas), FALSE, magmabh_and_cgwas),
+         cgwas_genes = ifelse(is.na(cgwas_genes), FALSE, cgwas_genes),
+         magmabh = ifelse(is.na(magmabh), FALSE, magmabh),
+         num_methods = rowSums(cbind(heinz, hotnet2, sigmod, dmgwas, lean))) %>%
+  filter(magmabh == TRUE)
+
+set.seed(42)
+consensus_gg <- consensus %>%
+  ggnetwork %>%
+  mutate(name = as.character(name))
+
+nodes <- mutate(consensus_gg,
+                Heinz = as.numeric(name %in% heinz_genes),
+                HotNet2 = as.numeric(name %in% hotnet2_genes),
+                SigMod = as.numeric(name %in% sigmod_genes),
+                dmGWAS = as.numeric(name %in% dmgwas_genes),
+                LEAN = as.numeric(name %in% lean_genes),
+                cGWAS = as.numeric(cgwas_genes),
+                MAGMABH = as.numeric(magmabh),
+                MAGMABHcGWAS = as.numeric(magmabh_and_cgwas)
+                ) %>%
+  filter(xend == x & yend == y) %>% 
+  select(x, y, name, all_of(methods)) %>%
+  unique
+
+nodes <- nodes %>%
+  mutate(label_group = case_when(
+    MAGMABHcGWAS == 1 ~ 'MAGMABH and cGWAS',
+    MAGMABH == 1 ~ 'MAGMABH',
+    cGWAS == 1 ~ 'cGWAS',
+    TRUE ~ 'Methods only')
+  )
+
+edges <- filter(consensus_gg, xend != x | yend != y)
+
+# CONSENSUS PIE
+
+consensus_pie_magmabh <- ggplot() +
+  geom_edges(data = edges, aes(x = x, y = y, xend = xend, yend = yend), 
+             color = '#393e46', linewidth = 1) +
+  geom_scatterpie(data = nodes, aes(x = x, y = y, r=0.007), cols = setdiff(methods, c('MAGMABH', 'cGWAS', 'MAGMABHcGWAS'))) +
+  scale_fill_manual(name = "Methods", values = method_palette) +
+  ggnewscale::new_scale_fill() +
+  geom_label_repel(data = nodes, 
+                   aes(x = x, y = y, label = name, fill = label_group), 
+                   size = 3, point.padding = 1, max.time = 5, max.iter = 20000, 
+                   max.overlaps = 100) +
+  scale_fill_manual(name = "Gene source", values = genesrc_palette) +
+  coord_fixed() +
+  theme_blank() +
+  guides(color = "none", fill = guide_legend(
+    override.aes = aes(label = "  ")
+  )) +
+  theme(legend.position = 'left',
+        legend.text = element_text(size = 20, vjust = .2),
+        legend.title = element_text(size = 22, vjust = 1)) +
+  theme_transparent
+
+consensus_pie_magmabh
+```
+
+```{r, fig.width = 24, fig.height = 32, fig.cap="Sensitivity analysis of the consensus network built by choosing those genes selected across all five methods."}
+library(patchwork)
+
+
+# cGWAS
+g_cgwas <- activate(ppi, nodes) %>%
+  filter(name %in% cgwas_genes) %>%
+  mutate(cgwas_genes = TRUE)
+class(g_cgwas) <- c('igraph','tbl_graph')
+
+# MAGMA_BH
+g_magmabh <- activate(ppi, nodes) %>%
+  filter(name %in% magmabh) %>%
+  mutate(magmabh = TRUE)
+class(g_magmabh) <- c('igraph','tbl_graph')
+
+# MAGMA_BH and cGWAS
+g_magmabh_and_cgwas <- activate(ppi, nodes) %>%
+  filter(name %in% magmabh_and_cgwas) %>%
+  mutate(magmabh_and_cgwas = TRUE)
+class(g_magmabh_and_cgwas) <- c('igraph','tbl_graph')
+
+# Heinz
+g_heinz <- activate(ppi, nodes) %>%
+  filter(name %in% heinz) %>%
+  mutate(heinz = TRUE)
+class(g_heinz) <- c('igraph','tbl_graph')
+
+# HotNet2
+g_hotnet2 <- activate(ppi, nodes) %>%
+  filter(name %in% hotnet2) %>%
+  mutate(hotnet2 = TRUE)
+class(g_hotnet2) <- c('igraph','tbl_graph')
+
+# SigMod
+g_sigmod <- activate(ppi, nodes) %>%
+  filter(name %in% sigmod) %>%
+  mutate(sigmod = TRUE)
+class(g_sigmod) <- c('igraph','tbl_graph')
+
+# dmGWAS
+g_dmgwas <- activate(ppi, nodes) %>%
+  filter(name %in% dmgwas) %>%
+  mutate(dmgwas = TRUE)
+class(g_dmgwas) <- c('igraph','tbl_graph')
+
+# LEAN
+g_lean <- activate(ppi, nodes) %>%
+  filter(name %in% lean) %>%
+  mutate(lean = TRUE)
+class(g_lean) <- c('igraph','tbl_graph')
+
+make_consensus_plot <- function(n) {
+
+  consensus <- graph_join(g_heinz, g_hotnet2, by = 'name') %>%
+    graph_join(g_sigmod, by = 'name') %>%
+    graph_join(g_dmgwas, by = 'name') %>%
+    graph_join(g_lean, by = 'name') %>%
+    graph_join(g_magmabh_and_cgwas, by = 'name') %>%
+    graph_join(g_cgwas, by = 'name') %>%
+    graph_join(g_magmabh, by = 'name') %>%
+    to_undirected %>%
+    mutate(heinz = ifelse(is.na(heinz), FALSE, heinz),
+           hotnet2 = ifelse(is.na(hotnet2), FALSE, hotnet2),
+           sigmod = ifelse(is.na(sigmod), FALSE, sigmod),
+           dmgwas = ifelse(is.na(dmgwas), FALSE, dmgwas),
+           lean = ifelse(is.na(lean), FALSE, lean),
+           magmabh_and_cgwas = ifelse(is.na(magmabh_and_cgwas), FALSE, magmabh_and_cgwas),
+           cgwas_genes = ifelse(is.na(cgwas_genes), FALSE, cgwas_genes),
+           magmabh = ifelse(is.na(magmabh), FALSE, magmabh),
+           num_methods = rowSums(cbind(heinz, hotnet2, sigmod, dmgwas, lean))) %>%
+    filter(num_methods >= n)
+
+  set.seed(42)
+  consensus_gg <- consensus %>%
+    ggnetwork %>%
+    mutate(name = as.character(name))
+
+  nodes <- mutate(consensus_gg,
+                  Heinz = as.numeric(name %in% heinz_genes),
+                  HotNet2 = as.numeric(name %in% hotnet2_genes),
+                  SigMod = as.numeric(name %in% sigmod_genes),
+                  dmGWAS = as.numeric(name %in% dmgwas_genes),
+                  LEAN = as.numeric(name %in% lean_genes),
+                  cGWAS = as.numeric(cgwas_genes),
+                  MAGMABH = as.numeric(magmabh),
+                  MAGMABHcGWAS = as.numeric(magmabh_and_cgwas)) %>%
+    filter(xend == x & yend == y) %>%
+    select(x, y, name, all_of(methods)) %>%
+    unique
+
+  nodes <- nodes %>%
+    mutate(label_group = case_when(
+      MAGMABHcGWAS == 1 ~ 'MAGMABH and cGWAS',
+      MAGMABH == 1 ~ 'MAGMABH',
+      cGWAS == 1 ~ 'cGWAS',
+      TRUE ~ 'Methods only'))
+
+  edges <- filter(consensus_gg, xend != x | yend != y)
+
+  ggplot() +
+    geom_edges(data = edges, aes(x = x, y = y, xend = xend, yend = yend),
+               color = '#393e46', linewidth = 1) +
+    geom_scatterpie(data = nodes, aes(x = x, y = y, r = 0.007),
+                    cols = setdiff(methods, c('MAGMABH', 'cGWAS', 'MAGMABHcGWAS'))) +
+    scale_fill_manual(name = "Methods", values = method_palette, drop = FALSE) +
+    ggnewscale::new_scale_fill() +
+    geom_label_repel(data = nodes,
+                     aes(x = x, y = y, label = name, fill = label_group),
+                     size = 3, point.padding = 1, max.time = 5, max.iter = 20000,
+                     max.overlaps = 100) +
+    scale_fill_manual(name = "Gene source", values = genesrc_palette, drop = FALSE) +
+    coord_fixed() +
+    theme_blank() +
+    guides(color = "none", fill = guide_legend(override.aes = aes(label = "  "))) +
+    theme(legend.position = 'left',
+          legend.text = element_text(size = 20, vjust = .2),
+          legend.title = element_text(size = 22, vjust = 1)) +
+    theme_transparent +
+    ggtitle(paste0("Consensus network: genes selected by >= ", n, " methods"))
+}
+
+# Build one plot per threshold
+consensus_plots <- lapply(1:5, make_consensus_plot)
+
+# Combine into one figure (2 columns x 3 rows)
+wrap_plots(consensus_plots, ncol = 2) +
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = 'A') &
+  theme(legend.position = "bottom")
+```
+
+```{r, fig.width = 20, fig.height = 20, fig.cap="Robustness of the consensus network built by changing the biological prior knowledge network: High-quality INTeractomes (HINT) (a), Integrated Interactions Database (IID) (b), IntAct Molecular Interaction Database (c), and Search Tool for Recurring Instances of Neighbouring Genes (STRING) (d)."}
+
+library(patchwork)
+
+# Folder of each network and the path to its PPI file
+networks <- list(
+  HINT   = list(dir = 'data/hint/',
+                ppi_file = 'data/hint/hint_homo_sapiens_lcb_hq_hgnc.tsv'),
+  IID    = list(dir = 'data/iid/',
+                ppi_file = 'data/iid/human_annotated_integrated_interactions_database_skin_not_sun_exposed_exp.tsv'),
+  IntAct = list(dir = 'data/intact/',
+                ppi_file = 'data/intact/intact_human_association_physical_direct_interaction_types_2026-04-14-10-00_hgnc.tsv'),
+  STRING = list(dir = 'data/string/',
+                ppi_file = 'data/string/9606.protein.links.v12.0.min900.onlyAB_hgnc.tsv')
+)
+
+# Read a PPI file with two gene columns and return a tbl_graph
+read_ppi <- function(path) {
+  read_tsv(path, col_types = cols(.default = 'c')) %>%
+    select(`Official Symbol Interactor A`, `Official Symbol Interactor B`) %>%
+    graph_from_data_frame(directed = FALSE) %>%
+    as_tbl_graph
+}
+
+build_consensus_plot <- function(net_name, net, n = 3) {
+
+  ppi <- read_ppi(net$ppi_file)
+  d <- net$dir
+
+  # Method outputs for this network
+  heinz   <- read_tsv(file.path(d, 'heinz/selected_genes_split_1.heinz.txt'), col_types = 'c')$gene
+  hotnet2 <- read_tsv(file.path(d, 'hotnet2/selected_genes_split_1.hotnet2.tsv'), col_types = 'cc')$gene
+  sigmod  <- read_tsv(file.path(d, 'sigmod/selected_genes_split_1.sigmod.txt'), col_types = 'c')$gene
+  dmgwas  <- read_tsv(file.path(d, 'dmgwas/selected_genes_split_1.dmgwas.txt'), col_types = 'c')$gene
+  lean    <- read_tsv(file.path(d, 'lean/selected_genes_split_1.lean.txt'), col_types = 'c')$gene
+
+  # Helper to create one subgraph per gene set
+  make_sub <- function(genes, label) {
+    g <- activate(ppi, nodes) %>%
+      filter(name %in% genes) %>%
+      mutate(!!label := TRUE)
+    class(g) <- c('igraph', 'tbl_graph')
+    g
+  }
+
+  g_cgwas             <- make_sub(cgwas_genes, 'cgwas_genes')
+  g_magmabh           <- make_sub(magmabh, 'magmabh')
+  g_magmabh_and_cgwas <- make_sub(magmabh_and_cgwas, 'magmabh_and_cgwas')
+  g_heinz             <- make_sub(heinz, 'heinz')
+  g_hotnet2           <- make_sub(hotnet2, 'hotnet2')
+  g_sigmod            <- make_sub(sigmod, 'sigmod')
+  g_dmgwas            <- make_sub(dmgwas, 'dmgwas')
+  g_lean              <- make_sub(lean, 'lean')
+
+  consensus <- graph_join(g_heinz, g_hotnet2, by = 'name') %>%
+    graph_join(g_sigmod, by = 'name') %>%
+    graph_join(g_dmgwas, by = 'name') %>%
+    graph_join(g_lean, by = 'name') %>%
+    graph_join(g_magmabh_and_cgwas, by = 'name') %>%
+    graph_join(g_cgwas, by = 'name') %>%
+    graph_join(g_magmabh, by = 'name') %>%
+    to_undirected %>%
+    mutate(heinz = ifelse(is.na(heinz), FALSE, heinz),
+           hotnet2 = ifelse(is.na(hotnet2), FALSE, hotnet2),
+           sigmod = ifelse(is.na(sigmod), FALSE, sigmod),
+           dmgwas = ifelse(is.na(dmgwas), FALSE, dmgwas),
+           lean = ifelse(is.na(lean), FALSE, lean),
+           magmabh_and_cgwas = ifelse(is.na(magmabh_and_cgwas), FALSE, magmabh_and_cgwas),
+           cgwas_genes = ifelse(is.na(cgwas_genes), FALSE, cgwas_genes),
+           magmabh = ifelse(is.na(magmabh), FALSE, magmabh),
+           num_methods = rowSums(cbind(heinz, hotnet2, sigmod, dmgwas, lean))) %>%
+    filter(num_methods >= n)
+
+  set.seed(42)
+  consensus_gg <- consensus %>%
+    ggnetwork %>%
+    mutate(name = as.character(name))
+
+  nodes <- mutate(consensus_gg,
+                  Heinz = as.numeric(heinz),
+                  HotNet2 = as.numeric(hotnet2),
+                  SigMod = as.numeric(sigmod),
+                  dmGWAS = as.numeric(dmgwas),
+                  LEAN = as.numeric(lean),
+                  cGWAS = as.numeric(cgwas_genes),
+                  MAGMABH = as.numeric(magmabh),
+                  MAGMABHcGWAS = as.numeric(magmabh_and_cgwas)) %>%
+    filter(xend == x & yend == y) %>%
+    select(x, y, name, all_of(methods)) %>%
+    unique
+
+  nodes <- nodes %>%
+    mutate(label_group = case_when(
+      MAGMABHcGWAS == 1 ~ 'MAGMABH and cGWAS',
+      MAGMABH == 1 ~ 'MAGMABH',
+      cGWAS == 1 ~ 'cGWAS',
+      TRUE ~ 'Methods only'))
+
+  edges <- filter(consensus_gg, xend != x | yend != y)
+
+
+  # stop("DEBUG: nodes columns are: ", paste(names(nodes), collapse = ", "))
+  
+  ggplot() +
+    geom_edges(data = edges, aes(x = x, y = y, xend = xend, yend = yend),
+               color = '#393e46', linewidth = 1) +    
+    geom_scatterpie(data = nodes, aes(x = x, y = y, r = 0.007),
+                    cols = setdiff(methods, c('MAGMABH', 'cGWAS', 'MAGMABHcGWAS'))) +
+    scale_fill_manual(name = "Methods", values = method_palette, drop = FALSE) +
+    ggnewscale::new_scale_fill() +
+    geom_label_repel(data = nodes,
+                     aes(x = x, y = y, label = name, fill = label_group),
+                     size = 3, point.padding = 1, max.time = 5, max.iter = 20000,
+                     max.overlaps = 100) +
+    scale_fill_manual(name = "Gene source", values = genesrc_palette, drop = FALSE) +
+    coord_fixed() +
+    theme_blank() +
+    guides(color = "none", fill = guide_legend(override.aes = aes(label = "  "))) +
+    theme(legend.position = 'left',
+          legend.text = element_text(size = 20, vjust = .2),
+          legend.title = element_text(size = 22, vjust = 1)) +
+    theme_transparent +
+    ggtitle(net_name)
+}
+
+# One plot per network
+consensus_plots <- map2(names(networks), networks, build_consensus_plot)
+
+# Combine into a 2 x 2 figure labelled (a) to (d)
+wrap_plots(consensus_plots, ncol = 2) +
+  plot_layout(guides = 'collect') +
+  plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')') &
+  theme(legend.position = 'bottom')
 ```

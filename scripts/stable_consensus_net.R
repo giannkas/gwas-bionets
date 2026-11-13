@@ -93,8 +93,6 @@ method_palette <- c('Heinz' = '#73471f',
 
 genesrc_palette <- c('MAGMABH' = '#abdda4', 'cGWAS' = '#fdae61', 'MAGMABH and cGWAS' = '#d3c783', 'Methods only' = '#ffffff')
 
-# TOPOLOGY PANEL
-
 plot_network <- function(net, selected_nodes, node_colors = NULL, label_genes = NULL) {
   
   graph <- activate(net, nodes) %>%
@@ -288,7 +286,7 @@ consensus_gg <- function(gset, g_cgwas, g_magmabh, g_magmabh_cgwas,
   rename(gene = name) %>%
   write_tsv(paste0(results_44249,'../stable_consensus_gset7.tsv'))
   
-  set.seed(42)   # fixes the network layout for reproductibility
+  set.seed(42)   # fixes the network layout for reproducibility
   gset %>%
   ggnetwork %>%
   mutate(name = as.character(name))
