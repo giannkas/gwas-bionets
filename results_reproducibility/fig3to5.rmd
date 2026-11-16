@@ -1,7 +1,21 @@
 ---
-title: "Figures using R"
-# output: fig2_upset_plot
+title: "Figures - Network-based analysis of genome-wide biobank data boosts discovery of genetic associations in psoriasis"
+abstract: "Psoriasis is a common autoimmune disease with a strong genetic component. Targeting the _IL-23/IL-17_ pathways for the treatment of moderate-severe psoriasis has proven successful, which makes it a good benchmark for other drug discovery approaches. Genome Wide Association Studies (GWAS) identify genetic loci associated with a phenotype (e.g. disease). However, using identified loci to understand the disease mechanisms remains challenging. In response, gene networks methods that consider gene-gene relationships have been developed. In a previous study, we showed that the combination of network methods improved the power, reproducibility, and interpretability of those approaches on a small cohort of breast cancer patients. The goal of the present study is to benchmark the performance of the same combination of network methods on a psoriasis cohort from the UK biobank (with a particular interest on the _IL-23/IL-17_ pathways). By applying this method, we identified well known psoriasis genes, demonstrating the viability of our approach. Our method further identified a small set of genes of the MRPL family robustly associated with psoriasis, demonstrating that this approach can provide insights into the potential disease mechanisms. Our study also shows that our method is applicable to large-scale biobank data to produce novel findings, even in well-studied diseases with strong genetic signal."
+notebook_authors: "Giann Karlo Aguirre-Samboní"
 ---
+
+## Contents {#contents}
+
+1. [UpSet plot of gene sets across methods](#fig-upset) — Genes shared across the intersections of the sets selected by Heinz, MAGMABH, HotNet2, SigMod, dmGWAS, LEAN and cGWAS.
+2. [Consensus network (128 genes) — methods and gene source](#fig-consensus-methods) — Genes selected by ≥ 3 of 5 methods; pie charts show which methods picked each gene, label colours show whether it is also significant in cGWAS and/or MAGMABH.
+3. [Consensus network (128 genes) — known psoriasis gene lists](#fig-consensus-genelists) — Same network, highlighting genes shared with the lists of Ran et al. (2019), Tsoi et al. (2017), Dand et al. (2025) and Zhang et al. (2025).
+4. [Consensus network (128 genes) — signalling pathways](#fig-consensus-pathways) — Same network, highlighting genes in IL-17, IL-23, TNF, IL-1, IFN-γ, IL-22, IL-6, NF-κB, JAK-STAT, MAPK, PI3K-AKT and WNT pathways.
+
+## UpSet plot of gene sets across methods {#fig-upset}
+
+Genes shared across the intersections of the sets selected by Heinz, MAGMABH, HotNet2, SigMod, dmGWAS, LEAN and cGWAS.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.cap="UpSet plot for representing all the common genes across different intersections of gene sets produced by the network-based methods. MAGAMBH corresponds to gene p-values outputted by MAGMA after applying the Benjamini-Hochberg procedure, cGWAS corresponds to gene p-values mapped from SNP p-values after the association test computed using PLINK v1.9."}
 library(UpSetR)
@@ -14,6 +28,12 @@ names(listInput) <- c("Heinz","MAGMABH", "HotNet2", "SigMod", "dmGWAS", "LEAN", 
 
 UpSetR::upset(fromList(listInput), nsets = 7, order.by = "freq", text.scale = c(1,1,1,1,1,1), set_size.show = FALSE, set_size.scale_max = 700)
 ```
+
+## Consensus network (128 genes) — methods and gene source {#fig-consensus-methods}
+
+Genes selected by ≥ 3 of 5 methods; pie charts show which methods picked each gene, label colours show whether it is also significant in cGWAS and/or MAGMABH.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.width = 14, fig.height = 10, fig.cap="Consensus network built by choosing those genes that were selected in at least 3 of the 5 methods. The network contains 128 nodes corresponding to genes. Methods and genes are highlighted to depict which method (Methods, pie chart) selected one particular gene, and if a gene (Gene source, colored labels) was also found significant in classical GWAS (cGWAS), or by MAGMA analysis after Benjamini-Hochberg correction (MAGMABH)."}
 library(igraph)
@@ -258,6 +278,12 @@ consensus_pie_methods
 ```
 
 
+## Consensus network (128 genes) — known psoriasis gene lists {#fig-consensus-genelists}
+
+Same network, highlighting genes shared with the lists of Ran et al. (2019), Tsoi et al. (2017), Dand et al. (2025) and Zhang et al. (2025).
+
+[↑ Back to contents](#contents)
+
 ```{r, fig.width = 14, fig.height = 10, fig.cap="Consensus network comprising 128 genes built by choosing those genes selected in at least 3 methods out of 5. This network highlights genes in common with known gene lists from Ran et al. (2019, Tsoi et al. (2017), Dand et al. (2025) and Zhang et al. (2025)."}
 ran_psoriasis_genes <- read_tsv('data/gene_lists/ran_psoriasis_genes.tsv',
                                 col_types = 'cc') %>%
@@ -324,6 +350,12 @@ consensus_pie_gene_lists <- ggplot() +
 consensus_pie_gene_lists
 
 ```
+
+## Consensus network (128 genes) — signalling pathways {#fig-consensus-pathways}
+
+Same network, highlighting genes in IL-17, IL-23, TNF, IL-1, IFN-γ, IL-22, IL-6, NF-κB, JAK-STAT, MAPK, PI3K-AKT and WNT pathways.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.width = 14, fig.height = 10, fig.cap="Consensus network comprising 128 genes built by choosing those genes selected in at least 3 methods out of 5. This network highlights genes in common with L-17, IL-23, TNF, IL-1, IFN-γ, IFN -mediated, IL-22, IL-6, NF-κB, JAK-STAT, MAPK, PI3K-AKT and WNT pathways."}
 il17_signaling_pathway <- read_tsv('data/pathways/il17_signaling_pathway.tsv',

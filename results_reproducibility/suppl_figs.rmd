@@ -1,7 +1,27 @@
 ---
-title: "Supplementary figures using R"
-# output: suppl_figs
+title: "Supplementary Figures - Network-based analysis of genome-wide biobank data boosts discovery of genetic associations in psoriasis"
+abstract: "Psoriasis is a common autoimmune disease with a strong genetic component. Targeting the _IL-23/IL-17_ pathways for the treatment of moderate-severe psoriasis has proven successful, which makes it a good benchmark for other drug discovery approaches. Genome Wide Association Studies (GWAS) identify genetic loci associated with a phenotype (e.g. disease). However, using identified loci to understand the disease mechanisms remains challenging. In response, gene networks methods that consider gene-gene relationships have been developed. In a previous study, we showed that the combination of network methods improved the power, reproducibility, and interpretability of those approaches on a small cohort of breast cancer patients. The goal of the present study is to benchmark the performance of the same combination of network methods on a psoriasis cohort from the UK biobank (with a particular interest on the _IL-23/IL-17_ pathways). By applying this method, we identified well known psoriasis genes, demonstrating the viability of our approach. Our method further identified a small set of genes of the MRPL family robustly associated with psoriasis, demonstrating that this approach can provide insights into the potential disease mechanisms. Our study also shows that our method is applicable to large-scale biobank data to produce novel findings, even in well-studied diseases with strong genetic signal."
+notebook_authors: "Giann Karlo Aguirre-Samboní"
 ---
+
+## Contents {#contents}
+
+1. [Networks produced by each method](#sfig-methods-networks) — Graphs from Heinz, HotNet2, SigMod, dmGWAS, LEAN, MAGMABH, cGWAS and MAGMABH+cGWAS, with the number of genes each selected.
+2. [Stable consensus network (258 genes) — known gene lists](#sfig-stable-genelists) — Genes selected in ≥ 7 of 25 solutions, highlighting overlap with the Ran, Tsoi, Dand and Zhang gene lists.
+3. [Genes selected across multiple gene sets (bar chart)](#sfig-gene-bars) — Declining bar chart of how many genes appear in at least 1, 2, 3… of the 25 gene lists (1,969 at ≥ 1; 1,094 at ≥ 2).
+4. [Sensitivity of the stable consensus to the threshold](#sfig-threshold-sensitivity) — Networks for Set1 … Set25 (genes in at least k of the 25 lists from 5 folds × 5 methods); Set22–25 are empty.
+5. [Stable consensus network (258 genes) — signalling pathways](#sfig-stable-pathways) — Same 258-gene network, highlighting genes in IL-17, IL-23, TNF, IL-1, IFN-γ, IL-22, IL-6, NF-κB, JAK-STAT, MAPK, PI3K-AKT and WNT pathways.
+6. [Stable consensus network (258 genes) — methods and gene source](#sfig-stable-methods) — Same network with pies showing which methods selected each gene and labels showing cGWAS / MAGMABH support.
+7. [Non-network prioritisation (MAGMA + Benjamini-Hochberg)](#sfig-magmabh) — Network view of the genes from the MAGMA gene-analysis step after Benjamini-Hochberg correction.
+8. [Consensus sensitivity — number of methods required](#sfig-all-methods-sensitivity) — Consensus networks for genes selected by ≥ 1 to 5 methods, shown as panels A–E.
+9. [Robustness to the prior-knowledge network](#sfig-ppi-robustness) — Consensus networks rebuilt with HINT (a), IID (b), IntAct (c) and STRING (d) instead of BioGRID.
+10. [Comparison between datasets](#sfig-dataset-comparison) — (a) this study's data excluding the MHC region and with covariates; (b) consensus network from FinnGen psoriasis summary statistics.
+
+## Networks produced by each method {#sfig-methods-networks}
+
+Graphs from Heinz, HotNet2, SigMod, dmGWAS, LEAN, MAGMABH, cGWAS and MAGMABH+cGWAS, with the number of genes each selected.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.width = 30, fig.height = 60, fig.cap="Networks or undirected simple graphs produced by Heinz (Dittrich et al. 2008), HotNet2 (Leiserson et al. 2015), SigMod (Liu et al. 2017), dmGWAS (Wang et al. 2015), LEAN (Gwinner et al. 2017), MAGMABH which corresponds to MAGMA output (de Leeuw et al. 2015) after Benjamini-Hochberg correction, cGWAS (classical GWAS) which corresponds to mapping significant SNPs to the corresponding gene, MAGMABH+cGWAS which corresponds to joining both genes from MAGMABH and cGWAS. Heinz selected 693 genes; HotNet2 selected 454 genes; SigMod selected 204 genes; dmGWAS selected 147 genes; LEAN selected 22 genes; MAGMABH selected 432 genes; cGWAS selected 240 genes; MAGMABH+cGWAS selected 448 genes"}
 library(igraph)
@@ -112,6 +132,12 @@ topology_panel <- plot_grid(heinz_plt, hotnet2_plt, sigmod_plt, dmgwas_plt, lean
 topology_panel
 ```
 
+
+## Stable consensus network (258 genes) — known gene lists {#sfig-stable-genelists}
+
+Genes selected in ≥ 7 of 25 solutions, highlighting overlap with the Ran, Tsoi, Dand and Zhang gene lists.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.width = 14, fig.height = 10, fig.cap="Stable consensus network comprising 258 genes built by choosing those genes selected in at least 7 out of 25 solutions. This network highlights genes in common with known gene lists from Ran et al. (2019, Tsoi et al. (2017), Dand et al. (2025) and Zhang et al. (2025)."}
 ran_psoriasis_genes <- read_tsv('data/gene_lists/ran_psoriasis_genes.tsv',
@@ -290,6 +316,12 @@ consensus_pie_gene_lists
 
 ```
 
+## Genes selected across multiple gene sets (bar chart) {#sfig-gene-bars}
+
+Declining bar chart of how many genes appear in at least 1, 2, 3… of the 25 gene lists (1,969 at ≥ 1; 1,094 at ≥ 2).
+
+[↑ Back to contents](#contents)
+
 ```{r, fig.width = 30, fig.height = 30, fig.cap="Declining bar chart to show the selection of genes across multiple gene sets for the construction of a stable consensus network. The highest bar (at 1 set) contains 1 969 genes, meaning nearly 2 000 genes appear in at least one gene set. This number drops to 1 094 genes appearing in at least 2 gene sets, and continues declining steeply through subsequent thresholds."}
 occurrence_counts <- sapply(1:max_occurrences, function(x) sum(gene_lists_subsets >= x))
 
@@ -307,6 +339,12 @@ ggplot(occurrence_df, aes(x = Occurrences, y = Frequency)) +
     y = "Number of genes") +
   theme_minimal(base_size = 20)
 ```
+
+## Sensitivity of the stable consensus to the threshold {#sfig-threshold-sensitivity}
+
+Networks for Set1 … Set25 (genes in at least k of the 25 lists from 5 folds × 5 methods); Set22–25 are empty.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.width = 30, fig.height = 30, fig.cap="Sensitivity analysis of different thresholds applied for the construction of the stable consensus network. After the running the workflow for constructing the stable consensus, the pipeline produces 25 gene lists corresponding to the subsampling approach (five folds times five methods). Set1 means all the genes selected in at least one gene list, Set2 means all the genes selected in at least two gene lists, Set3 means all the genes selected in at least three gene lists, etc. Set25 means all the genes selected in all gene lists, which in this case is empty together with Set22, Set23 and Set24."}
 
@@ -331,6 +369,12 @@ sensitivity_plot <- plot_grid(topology_panel,
                 axis = "tblr")         # Aligns the top and bottom axes
 sensitivity_plot
 ```
+
+## Stable consensus network (258 genes) — signalling pathways {#sfig-stable-pathways}
+
+Same 258-gene network, highlighting genes in IL-17, IL-23, TNF, IL-1, IFN-γ, IL-22, IL-6, NF-κB, JAK-STAT, MAPK, PI3K-AKT and WNT pathways.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.width = 14, fig.height = 10, fig.cap="Stable consensus network comprising 258 genes built by choosing those genes selected in at least 7 out of 25 solutions. This network highlights genes in common with L-17, IL-23, TNF, IL-1, IFN-γ, IFN -mediated, IL-22, IL-6, NF-κB, JAK-STAT, MAPK, PI3K-AKT and WNT pathways."}
 il17_signaling_pathway <- read_tsv('data/pathways/il17_signaling_pathway.tsv',
@@ -473,6 +517,12 @@ consensus_pie_pathways <- ggplot() +
 consensus_pie_pathways
 ```
 
+## Stable consensus network (258 genes) — methods and gene source {#sfig-stable-methods}
+
+Same network with pies showing which methods selected each gene and labels showing cGWAS / MAGMABH support.
+
+[↑ Back to contents](#contents)
+
 ```{r, fig.width = 14, fig.height = 10, fig.cap="Stable consensus network built by choosing those genes selected in at least 7 out of 25 solutions. There are 258 genes in the network."}
 
 gene_set7 <- names(gene_lists_subsets[gene_lists_subsets >= 7])
@@ -555,6 +605,12 @@ consensus_pie_methods <- ggplot() +
 
 consensus_pie_methods
 ```
+
+## Non-network prioritisation (MAGMA + Benjamini-Hochberg) {#sfig-magmabh}
+
+Network view of the genes from the MAGMA gene-analysis step after Benjamini-Hochberg correction.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.width = 14, fig.height = 10, fig.cap="Non-network prioritisation method. We corrected for multiple tests using the Benjamini-Hochberg approach to the genes outputted by MAGMA gene-analysis step."}
 
@@ -666,6 +722,12 @@ consensus_pie_magmabh <- ggplot() +
 
 consensus_pie_magmabh
 ```
+
+## Consensus sensitivity — number of methods required {#sfig-all-methods-sensitivity}
+
+Consensus networks for genes selected by ≥ 1 to 5 methods, shown as panels A–E.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.width = 24, fig.height = 32, fig.cap="Sensitivity analysis of the consensus network built by choosing those genes selected across all five methods."}
 library(patchwork)
@@ -798,6 +860,12 @@ wrap_plots(consensus_plots, ncol = 2) +
   plot_annotation(tag_levels = 'A') &
   theme(legend.position = "bottom")
 ```
+
+## Robustness to the prior-knowledge network {#sfig-ppi-robustness}
+
+Consensus networks rebuilt with HINT (a), IID (b), IntAct (c) and STRING (d) instead of BioGRID.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.width = 20, fig.height = 20, fig.cap="Robustness of the consensus network built by changing the biological prior knowledge network: High-quality INTeractomes (HINT) (a), Integrated Interactions Database (IID) (b), IntAct Molecular Interaction Database (c), and Search Tool for Recurring Instances of Neighbouring Genes (STRING) (d)."}
 
@@ -933,6 +1001,12 @@ wrap_plots(consensus_plots, ncol = 2) +
   plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')') &
   theme(legend.position = 'bottom')
 ```
+
+## Comparison between datasets {#sfig-dataset-comparison}
+
+(a) this study's data excluding the MHC region and with covariates; (b) consensus network from FinnGen psoriasis summary statistics.
+
+[↑ Back to contents](#contents)
 
 ```{r, fig.width = 20, fig.height = 15, fig.cap="Comparison between two different datasets. Subfigure (a) illustrates the dataset used in this study, but excluding the MHC region, and integrating covariates, subfigure (b) shows the consensus network obtained by applying the pipeline to the psoriasis summary statistics from Finngen."}
 
